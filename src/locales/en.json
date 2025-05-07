@@ -1,0 +1,18 @@
+{
+  "common": {
+    "welcome": "Welcome to Osu Beatmap Mirror",
+    "language": "Language",
+    "download": "Download",
+    "search": "Search",
+    "settings": "Settings"
+  },
+  "navigation": {
+    "home": "Home",
+    "beatmaps": "Beatmaps",
+    "about": "About"
+  },
+  "errors": {
+    "notFound": "Page not found",
+    "serverError": "Server error occurred"
+  }
+}

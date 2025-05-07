@@ -1,0 +1,18 @@
+{
+  "common": {
+    "welcome": "Osu Beatmap Mirrorへようこそ",
+    "language": "言語",
+    "download": "ダウンロード",
+    "search": "検索",
+    "settings": "設定"
+  },
+  "navigation": {
+    "home": "ホーム",
+    "beatmaps": "ビートマップ",
+    "about": "概要"
+  },
+  "errors": {
+    "notFound": "ページが見つかりません",
+    "serverError": "サーバーエラーが発生しました"
+  }
+}
