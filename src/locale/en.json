@@ -1,0 +1,10 @@
+{
+    "search": {
+      "placeholder": "Search...",
+      "button": "Go"
+    },
+    "beatmap": {
+      "download": "Download",
+      "difficulty": "Stars"
+    }
+}

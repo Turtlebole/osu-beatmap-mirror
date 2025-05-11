@@ -1,0 +1,10 @@
+{
+    "search": {
+      "placeholder": "検索...",
+      "button": "検索"
+    },
+    "beatmap": {
+      "download": "ダウンロード",
+      "difficulty": "難易度"
+    }
+}

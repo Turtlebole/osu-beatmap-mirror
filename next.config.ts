@@ -1,7 +1,17 @@
-import type { NextConfig } from "next";
+import path from 'path';
+import type { NextConfig } from 'next';
 
-const nextConfig: NextConfig = {
-  /* config options here */
+const config: NextConfig = {
+  images: {
+    domains: ['assets.ppy.sh'],
+  },
+  webpack: (config) => ({
+    ...config,
+    resolve: {
+      ...config.resolve,
+      alias: { ...config.resolve?.alias, '@locale': path.resolve(__dirname, 'src/locale') }
+    }
+  })
 };
 
-export default nextConfig;
+export default config;
