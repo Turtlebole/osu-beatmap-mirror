@@ -13,7 +13,7 @@ let tokenInfo = {
     expiresAt: 0 as number,
 };
 
-async function getAccessToken(): Promise<string> {
+export async function getAccessToken(): Promise<string> {
     const now = Date.now();
     if (tokenInfo.accessToken && now < tokenInfo.expiresAt) {
         return tokenInfo.accessToken;

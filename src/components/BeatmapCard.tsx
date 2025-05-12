@@ -1,10 +1,12 @@
+"use client";
+
 import Image from 'next/image';
 import Link from 'next/link';
 import { Beatmapset } from '@/lib/osu-api';
 import { cn, formatNumber, formatTime } from '@/lib/utils';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Star, User, Clock, Play, ListMusic, Heart, CheckCircle, Hourglass, CircleSlash } from 'lucide-react';
+import { Star, User, Clock, Play, ListMusic, Heart, CheckCircle, Hourglass, CircleSlash, Download } from 'lucide-react';
 
 // Helper to get status attributes
 const getStatusAttributes = (status: string): { variant: 'default' | 'secondary' | 'outline' | 'destructive', icon?: React.ElementType } => {
@@ -58,6 +60,9 @@ export function BeatmapCard({ beatmapset, locale }: BeatmapCardProps) {
       : maxDifficulty >= 4 
         ? 'text-yellow-500' 
         : '';
+
+  // Download URL
+  const downloadUrl = `/api/download/${id}`;
 
   return (
     <Card className="overflow-hidden transition-all hover:shadow-lg hover:border-pink-500/30 h-full flex flex-col group">
@@ -126,6 +131,22 @@ export function BeatmapCard({ beatmapset, locale }: BeatmapCardProps) {
           )}
         </CardContent>
       </Link>
+      
+      <CardFooter className="p-3 pt-0 flex justify-between items-center">
+        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+          <Play className="h-3 w-3" />
+          <span>{beatmapset.play_count ? formatNumber(beatmapset.play_count) : '0'} plays</span>
+        </div>
+        
+        <a 
+          href={downloadUrl} 
+          download={`${artist} - ${title} [${creator}].osz`}
+          className="text-muted-foreground hover:text-pink-500 transition-colors p-1 rounded-full hover:bg-pink-500/10"
+          title="Download beatmap"
+        >
+          <Download className="h-4 w-4" />
+        </a>
+      </CardFooter>
     </Card>
   );
 } 
