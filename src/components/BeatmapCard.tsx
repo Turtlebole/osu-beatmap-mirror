@@ -1,10 +1,13 @@
+"use client";
+
 import Image from 'next/image';
 import Link from 'next/link';
 import { Beatmapset } from '@/lib/osu-api';
 import { cn, formatNumber, formatTime } from '@/lib/utils';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Star, User, Clock, Play, ListMusic, Heart, CheckCircle, Hourglass, CircleSlash } from 'lucide-react';
+import { Star, User, Clock, Play, ListMusic, Heart, CheckCircle, Hourglass, CircleSlash, Download } from 'lucide-react';
+import { useDownloadQueue } from '@/context/DownloadQueueContext';
 
 // Helper to get status attributes
 const getStatusAttributes = (status: string): { variant: 'default' | 'secondary' | 'outline' | 'destructive', icon?: React.ElementType } => {
@@ -38,6 +41,7 @@ type BeatmapCardProps = {
 
 export function BeatmapCard({ beatmapset, locale }: BeatmapCardProps) {
   const { id, title, artist, creator, user_id, status, covers, beatmaps } = beatmapset;
+  const { addToQueue, queue } = useDownloadQueue();
   
   // Find the representative beatmap (usually the highest difficulty)
   const sortedBeatmaps = beatmaps ? [...beatmaps].sort((a, b) => b.difficulty_rating - a.difficulty_rating) : [];
@@ -58,6 +62,32 @@ export function BeatmapCard({ beatmapset, locale }: BeatmapCardProps) {
       : maxDifficulty >= 4 
         ? 'text-yellow-500' 
         : '';
+
+  // Download URL
+  const downloadUrl = `/api/download/${id}`;
+  const downloadFilename = `${artist} - ${title} [${creator}].osz`;
+  
+  // Check if this beatmap is already in the queue
+  const isInQueue = queue.some(item => item.beatmapId === id.toString());
+  
+  // Handle direct download
+  const handleDownload = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (isInQueue) return;
+    
+    // Add to queue
+    addToQueue({
+      beatmapId: id.toString(),
+      title,
+      artist,
+      creator,
+      thumbnail: covers['cover@2x'] || covers.cover || '/placeholder.png',
+      url: downloadUrl,
+      filename: downloadFilename
+    });
+  };
 
   return (
     <Card className="overflow-hidden transition-all hover:shadow-lg hover:border-pink-500/30 h-full flex flex-col group">
@@ -126,6 +156,22 @@ export function BeatmapCard({ beatmapset, locale }: BeatmapCardProps) {
           )}
         </CardContent>
       </Link>
+      
+      <CardFooter className="p-3 pt-0 flex justify-between items-center">
+        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+          <Play className="h-3 w-3" />
+          <span>{beatmapset.play_count ? formatNumber(beatmapset.play_count) : '0'} plays</span>
+        </div>
+        
+        <a 
+          href={downloadUrl}
+          onClick={handleDownload}
+          className={`text-muted-foreground ${isInQueue ? 'text-pink-500' : 'hover:text-pink-500'} transition-colors p-1 rounded-full hover:bg-pink-500/10`}
+          title={isInQueue ? 'In download queue' : 'Download beatmap'}
+        >
+          <Download className={`h-4 w-4 ${isInQueue ? 'animate-pulse' : ''}`} />
+        </a>
+      </CardFooter>
     </Card>
   );
 } 

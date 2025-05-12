@@ -11,6 +11,9 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { formatTime, formatNumber } from '@/lib/utils';
 import { Star, Clock, User, Download, Heart, CheckCircle, Hourglass, CircleSlash, ExternalLink, Terminal, Music } from 'lucide-react';
 
+// Client component for the download button
+import DownloadButton from '@/components/DownloadButton';
+
 type BeatmapPageProps = {
   params: {
     locale: string;
@@ -99,7 +102,9 @@ export default async function BeatmapPage({ params }: BeatmapPageProps) {
   const StatusIcon = statusAttributes.icon;
   
   // Download URL
-  const downloadUrl = `https://api.chimu.moe/v1/download/${beatmapset.id}`;
+  const downloadUrl = `/api/download/${beatmapset.id}`;
+  const downloadFilename = `${beatmapset.artist} - ${beatmapset.title} [${beatmapset.creator}].osz`;
+  const thumbnail = beatmapset.covers['cover@2x'] || beatmapset.covers.cover || '/placeholder.png';
 
   // Calculate representative beatmap information
   const representativeBeatmap = beatmapset.beatmaps && beatmapset.beatmaps.length > 0 
@@ -138,11 +143,15 @@ export default async function BeatmapPage({ params }: BeatmapPageProps) {
             </div>
             
             <div className="mt-4 md:mt-0">
-              <Button asChild size="lg" className="bg-pink-600 hover:bg-pink-700 text-white">
-                <a href={downloadUrl} target="_blank" rel="noopener noreferrer">
-                  <Download className="mr-2 h-4 w-4" /> Download Beatmap
-                </a>
-              </Button>
+              <DownloadButton 
+                url={downloadUrl} 
+                filename={downloadFilename}
+                beatmapId={id}
+                title={beatmapset.title}
+                artist={beatmapset.artist}
+                creator={beatmapset.creator}
+                thumbnail={thumbnail}
+              />
             </div>
           </div>
         </div>
