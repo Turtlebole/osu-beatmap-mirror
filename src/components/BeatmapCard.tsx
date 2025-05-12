@@ -1,153 +1,131 @@
-"use client";
-
 import Image from 'next/image';
 import Link from 'next/link';
-import { t } from '@/lib/i18n';
+import { Beatmapset } from '@/lib/osu-api';
+import { cn, formatNumber, formatTime } from '@/lib/utils';
+import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Star, User, Clock, Play, ListMusic, Heart, CheckCircle, Hourglass, CircleSlash } from 'lucide-react';
 
-type BeatmapDifficulty = {
-  stars: number;
-  version: string;
+// Helper to get status attributes
+const getStatusAttributes = (status: string): { variant: 'default' | 'secondary' | 'outline' | 'destructive', icon?: React.ElementType } => {
+  switch (status.toLowerCase()) {
+    case 'ranked':
+    case 'approved': return { variant: 'default', icon: CheckCircle };
+    case 'loved': return { variant: 'destructive', icon: Heart };
+    case 'qualified': return { variant: 'secondary', icon: Hourglass };
+    case 'pending':
+    case 'wip': return { variant: 'outline', icon: Hourglass };
+    case 'graveyard':
+    default: return { variant: 'secondary', icon: CircleSlash };
+  }
+};
+
+// Helper to get game mode name
+const getModeName = (mode: string): string => {
+  switch (mode) {
+    case '0': return 'osu!';
+    case '1': return 'taiko';
+    case '2': return 'catch';
+    case '3': return 'mania';
+    default: return mode;
+  }
 };
 
 type BeatmapCardProps = {
-  id: string;
-  title: string;
-  artist: string;
-  creator: string;
-  coverUrl: string;
-  bpm: number;
-  length: string;
-  playCount: number;
-  difficulties: BeatmapDifficulty[];
+  beatmapset: Beatmapset;
   locale: string;
 };
 
-export function BeatmapCard({
-  id,
-  title,
-  artist,
-  creator,
-  coverUrl,
-  bpm,
-  length,
-  playCount,
-  difficulties,
-  locale,
-}: BeatmapCardProps) {
-  // Calculate the max difficulty stars
-  const maxStars = Math.max(...difficulties.map(d => d.stars));
-  const difficultyColors = [
-    'bg-green-500', // < 2 stars
-    'bg-blue-500',  // < 3 stars
-    'bg-yellow-500', // < 4 stars
-    'bg-orange-500', // < 5 stars
-    'bg-red-500',    // < 6 stars
-    'bg-purple-500', // >= 6 stars
-  ];
+export function BeatmapCard({ beatmapset, locale }: BeatmapCardProps) {
+  const { id, title, artist, creator, user_id, status, covers, beatmaps } = beatmapset;
   
-  // Get color based on max difficulty
-  const getDifficultyColor = (stars: number) => {
-    if (stars < 2) return difficultyColors[0];
-    if (stars < 3) return difficultyColors[1];
-    if (stars < 4) return difficultyColors[2];
-    if (stars < 5) return difficultyColors[3];
-    if (stars < 6) return difficultyColors[4];
-    return difficultyColors[5];
-  };
+  // Find the representative beatmap (usually the highest difficulty)
+  const sortedBeatmaps = beatmaps ? [...beatmaps].sort((a, b) => b.difficulty_rating - a.difficulty_rating) : [];
+  const representativeBeatmap = sortedBeatmaps[0];
   
-  const diffColor = getDifficultyColor(maxStars);
-  
+  const maxDifficulty = representativeBeatmap?.difficulty_rating ?? 0;
+  const lengthSeconds = representativeBeatmap?.total_length ?? 0;
+  const mode = representativeBeatmap ? getModeName(representativeBeatmap.mode) : '';
+
+  const statusAttributes = getStatusAttributes(status);
+  const StatusIcon = statusAttributes.icon;
+
+  // Color for difficulty rating
+  const difficultyColor = maxDifficulty >= 6 
+    ? 'text-pink-500' 
+    : maxDifficulty >= 5 
+      ? 'text-orange-500' 
+      : maxDifficulty >= 4 
+        ? 'text-yellow-500' 
+        : '';
+
   return (
-    <Link href={`/${locale}/beatmap/${id}`}>
-      <div className="beatmap-card bg-card border border-border rounded-lg overflow-hidden hover:border-primary transition-colors">
-        <div className="relative h-36">
+    <Card className="overflow-hidden transition-all hover:shadow-lg hover:border-pink-500/30 h-full flex flex-col group">
+      <Link href={`/${locale}/beatmap/${id}`} className="block flex-grow">
+        <CardHeader className="p-0 relative h-32 md:h-36">
+          <div className="absolute inset-0 bg-card/30 group-hover:bg-card/0 transition-all duration-200 z-10"></div>
           <Image
-            src={coverUrl}
-            alt={`${artist} - ${title}`}
+            src={covers['cover@2x'] || covers.cover || '/placeholder.png'}
+            alt={`Cover image for ${title} by ${artist}`}
             fill
-            className="object-cover"
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+            className="object-cover transition-transform duration-300 group-hover:scale-105"
+            priority={false}
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent"></div>
-          <div className="absolute bottom-0 left-0 p-3 text-white">
-            <p className="font-bold truncate max-w-[250px]">{title}</p>
-            <p className="text-sm truncate max-w-[250px]">{artist}</p>
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent z-20"></div>
+          <div className="absolute top-2 right-2 z-30">
+            <Badge variant={statusAttributes.variant} className="capitalize">
+              {StatusIcon && <StatusIcon className="h-3 w-3 mr-1" />}
+              {status}
+            </Badge>
           </div>
-          <div className="absolute top-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded-full">
-            {difficulties.length} {difficulties.length === 1 ? t(locale, 'beatmap.difficulty') : `${t(locale, 'beatmap.difficulty')}s`}
+          <div className="absolute bottom-0 left-0 p-3 w-full z-30">
+            <h3 className="font-semibold text-white truncate text-base leading-tight" title={title}>{title}</h3>
+            <p className="text-xs text-gray-300 truncate" title={artist}>{artist}</p>
           </div>
-        </div>
+        </CardHeader>
         
-        <div className="p-3">
-          <div className="flex justify-between items-center mb-2">
-            <div className="text-sm text-muted-foreground">
-              <span>Mapped by </span>
-              <span className="text-primary hover:underline">{creator}</span>
-            </div>
-            <div className="flex items-center text-sm text-muted-foreground">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="mr-1"
-              >
-                <path d="M2 12C2 6.48 6.48 2 12 2s10 4.48 10 10-4.48 10-10 10S2 17.52 2 12z"/>
-                <path d="M12 6v6l4 2"/>
-              </svg>
-              {length}
-            </div>
+        <CardContent className="p-3 space-y-2">
+          <div className="flex items-center text-xs text-muted-foreground">
+            <User className="h-3 w-3 mr-1 flex-shrink-0" />
+            <span className="truncate">Mapped by <span className="text-pink-500 hover:underline">{creator}</span></span>
           </div>
           
-          <div className="flex justify-between mb-2">
-            <div className="text-sm">
-              <span className="text-muted-foreground">BPM: </span>
-              <span>{bpm}</span>
+          <div className="flex justify-between items-center text-xs">
+            <div className="flex items-center gap-1" title={`Max Difficulty: ${maxDifficulty.toFixed(2)} stars`}>
+              <Star className={`h-3 w-3 ${difficultyColor || 'text-muted-foreground'}`} />
+              <span className={difficultyColor || ''}>{maxDifficulty.toFixed(2)}★</span>
             </div>
-            <div className="text-sm flex items-center">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="mr-1"
-              >
-                <path d="M12 20h9"/>
-                <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
-              </svg>
-              <span>{playCount.toLocaleString()}</span>
-            </div>
-          </div>
-          
-          <div className="flex flex-wrap gap-1 mt-2">
-            {difficulties.map((diff, index) => (
-              <div 
-                key={index} 
-                className={`text-xs px-2 py-1 rounded-full ${getDifficultyColor(diff.stars)} text-white`}
-                title={`${diff.version} (${diff.stars.toFixed(1)}★)`}
-              >
-                {diff.stars.toFixed(1)}★
+            
+            {mode && (
+              <div className="font-medium text-xs px-2 py-0.5 bg-pink-600/10 text-pink-600 rounded-full">
+                {mode}
               </div>
-            ))}
+            )}
+            
+            <div className="flex items-center gap-1" title={`Length: ${formatTime(lengthSeconds)}`}>
+              <Clock className="h-3 w-3" />
+              <span>{formatTime(lengthSeconds)}</span>
+            </div>
           </div>
           
-          <div className="mt-3 w-full bg-muted rounded-full h-1.5 overflow-hidden">
-            <div 
-              className={`${diffColor} h-full`} 
-              style={{ width: `${(maxStars / 10) * 100}%` }}
-            ></div>
-          </div>
-        </div>
-      </div>
-    </Link>
+          {beatmaps && (
+            <div className="flex justify-between text-xs text-muted-foreground pt-1 border-t border-border/50">
+              <div className="flex items-center gap-1" title={`${beatmaps.length} difficulties`}>
+                <ListMusic className="h-3 w-3" />
+                <span>{beatmaps.length} diffs</span>
+              </div>
+              
+              {beatmapset.favourite_count && (
+                <div className="flex items-center gap-1" title={`${formatNumber(beatmapset.favourite_count)} favorites`}>
+                  <Heart className="h-3 w-3 text-pink-500" />
+                  <span>{formatNumber(beatmapset.favourite_count)}</span>
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Link>
+    </Card>
   );
 } 

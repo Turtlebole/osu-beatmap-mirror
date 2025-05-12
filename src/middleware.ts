@@ -5,9 +5,38 @@ import type { NextRequest } from 'next/server';
 const locales = ['en', 'es', 'ja'];
 const defaultLocale = 'en';
 
+// Define a function to get the preferred locale from the request
+function getPreferredLocale(request: NextRequest): string {
+  // Check for locale in cookie
+  const cookieLocale = request.cookies.get('NEXT_LOCALE')?.value;
+  if (cookieLocale && locales.includes(cookieLocale)) {
+    return cookieLocale;
+  }
+
+  // Check Accept-Language header
+  const acceptLanguage = request.headers.get('accept-language');
+  if (acceptLanguage) {
+    const preferredLocale = acceptLanguage
+      .split(',')
+      .map(lang => {
+        const [locale, priority] = lang.trim().split(';q=');
+        return { locale: locale.split('-')[0], priority: priority ? Number(priority) : 1 };
+      })
+      .sort((a, b) => b.priority - a.priority)
+      .find(({ locale }) => locales.includes(locale))?.locale;
+
+    if (preferredLocale) {
+      return preferredLocale;
+    }
+  }
+
+  // Return default locale
+  return defaultLocale;
+}
+
 export function middleware(request: NextRequest) {
   // Get the pathname
-  const pathname = request.nextUrl.pathname;
+  const { pathname } = request.nextUrl;
 
   // Skip middleware for non-HTML requests or static files
   if (
@@ -18,37 +47,52 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Check if we already redirected (to prevent loops)
-  const redirectMark = request.headers.get('x-middleware-redirect');
-  if (redirectMark === 'processed') {
-    return NextResponse.next();
-  }
-
-  // Check if the pathname already starts with a locale prefix
-  const hasLocalePrefix = locales.some(
+  // If the root path or doesn't have locale, redirect to the preferred locale
+  const pathnameHasLocale = locales.some(
     locale => pathname.startsWith(`/${locale}/`) || pathname === `/${locale}`
   );
 
-  // If it doesn't have a locale prefix, add one
-  if (!hasLocalePrefix && pathname !== '/') {
-    // Redirect to same path but with locale prefix
+  if (!pathnameHasLocale) {
+    // For / path, redirect to the home page
+    if (pathname === '/') {
+      const locale = getPreferredLocale(request);
+      const response = NextResponse.redirect(
+        new URL(`/${locale}/home`, request.url)
+      );
+      return response;
+    }
+
+    // For any other path without locale, add the locale
+    const locale = getPreferredLocale(request);
     const response = NextResponse.redirect(
-      new URL(`/${defaultLocale}${pathname}`, request.url)
+      new URL(`/${locale}${pathname}`, request.url)
     );
-    response.headers.set('x-middleware-redirect', 'processed');
     return response;
   }
 
-  // For the root path, redirect to the default locale
-  if (pathname === '/') {
+  // For paths with only the locale (e.g., /en), redirect to /en/home
+  const matchLocaleOnly = /^\/([a-z]{2})$/i.exec(pathname);
+  if (matchLocaleOnly) {
+    const locale = matchLocaleOnly[1];
     const response = NextResponse.redirect(
-      new URL(`/${defaultLocale}`, request.url)
+      new URL(`/${locale}/home`, request.url)
     );
-    response.headers.set('x-middleware-redirect', 'processed');
     return response;
   }
 
-  // Otherwise, continue
+  // Set cookie for future requests
+  const currentLocale = pathname.split('/')[1];
+  if (locales.includes(currentLocale)) {
+    const response = NextResponse.next();
+    if (request.cookies.get('NEXT_LOCALE')?.value !== currentLocale) {
+      response.cookies.set('NEXT_LOCALE', currentLocale, { 
+        maxAge: 60 * 60 * 24 * 365, // 1 year
+        path: '/' 
+      });
+    }
+    return response;
+  }
+
   return NextResponse.next();
 }
 
