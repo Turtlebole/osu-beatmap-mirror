@@ -44,30 +44,36 @@ export default function DownloadQueue() {
   const failedDownloads = queue.filter(item => item.status === 'error').length;
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 w-96 max-w-[calc(100vw-2rem)] shadow-2xl rounded-lg bg-card border">
-      <Card className="shadow-none border-0">
+    <div className="fixed bottom-4 z-50 w-full px-4 sm:px-0 sm:right-4 sm:w-96 max-w-full flex justify-center sm:justify-end pointer-events-none">
+      <Card className="shadow-2xl border rounded-lg w-full max-w-[calc(100vw-2rem)] pointer-events-auto">
         <CardHeader className="pb-2 cursor-pointer" onClick={() => setIsCollapsed(!isCollapsed)}>
           <div className="flex justify-between items-center">
             <CardTitle className="text-base">
               <div className="flex items-center gap-2">
                 <Download className="h-4 w-4" />
-                Download Queue {queue.length > 0 && `(${queue.length})`}
+                <span className="hidden xs:inline">Download Queue</span>
+                <span className="xs:hidden">Downloads</span>
+                {queue.length > 0 && (
+                  <Badge variant="secondary" className="h-5 min-w-5 px-1 flex items-center justify-center">
+                    {queue.length}
+                  </Badge>
+                )}
               </div>
             </CardTitle>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 sm:gap-2">
               {activeDownloads > 0 && (
-                <Badge variant="outline" className="bg-blue-500/10 text-blue-500 border-blue-500/20">
+                <Badge variant="outline" className="bg-blue-500/10 text-blue-500 border-blue-500/20 text-xs">
                   {activeDownloads} active
                 </Badge>
               )}
               {completedDownloads > 0 && (
-                <Badge variant="outline" className="bg-green-500/10 text-green-500 border-green-500/20">
-                  {completedDownloads} completed
+                <Badge variant="outline" className="bg-green-500/10 text-green-500 border-green-500/20 text-xs hidden xs:inline-flex">
+                  {completedDownloads}
                 </Badge>
               )}
               {failedDownloads > 0 && (
-                <Badge variant="outline" className="bg-red-500/10 text-red-500 border-red-500/20">
-                  {failedDownloads} failed
+                <Badge variant="outline" className="bg-red-500/10 text-red-500 border-red-500/20 text-xs">
+                  {failedDownloads}
                 </Badge>
               )}
               {isCollapsed ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
@@ -77,7 +83,7 @@ export default function DownloadQueue() {
         
         {!isCollapsed && (
           <>
-            <CardContent className="max-h-96 overflow-y-auto space-y-2">
+            <CardContent className={`max-h-[40vh] sm:max-h-96 overflow-y-auto space-y-2 ${queue.length > 5 ? 'pr-2' : ''}`}>
               {queue.map((item) => (
                 <DownloadItem key={item.id} item={item} onRemove={removeFromQueue} />
               ))}
@@ -90,14 +96,17 @@ export default function DownloadQueue() {
                 className="text-destructive hover:text-destructive/80"
                 onClick={clearQueue}
               >
-                <Trash2 className="h-4 w-4 mr-1" /> Clear All
+                <Trash2 className="h-4 w-4 mr-1" /> 
+                <span className="hidden xs:inline">Clear All</span>
+                <span className="xs:hidden">Clear</span>
               </Button>
               <Button 
                 variant="ghost" 
                 size="sm"
                 onClick={() => setIsCollapsed(true)}
               >
-                Minimize
+                <span className="hidden xs:inline">Minimize</span>
+                <span className="xs:hidden">Hide</span>
               </Button>
             </CardFooter>
           </>
@@ -148,7 +157,7 @@ function DownloadItem({ item, onRemove }: { item: DownloadItem; onRemove: (id: s
           <Button 
             variant="ghost" 
             size="icon" 
-            className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity" 
+            className="h-5 w-5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity ml-1" 
             onClick={() => onRemove(item.id)}
           >
             <X className="h-3 w-3" />
@@ -164,12 +173,16 @@ function DownloadItem({ item, onRemove }: { item: DownloadItem; onRemove: (id: s
           <div className="flex justify-between items-center text-xs">
             <span className={`flex items-center gap-1 ${statusColor}`}>
               {statusIcon}
-              {item.status === 'downloading' ? `${item.progress}%` : 
-               item.status === 'error' ? 'Failed' : 
-               item.status === 'completed' ? 'Completed' : 'Queued'}
+              <span className="inline-block">
+                {item.status === 'downloading' ? `${item.progress}%` : 
+                 item.status === 'error' ? 'Failed' : 
+                 item.status === 'completed' ? 'Completed' : 'Queued'}
+              </span>
             </span>
             {item.status === 'error' && item.error && (
-              <span className="text-red-500 text-xs">{item.error}</span>
+              <span className="text-red-500 text-xs truncate max-w-[120px]" title={item.error}>
+                {item.error}
+              </span>
             )}
           </div>
         </div>
