@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Script from "next/script";
+import { DownloadQueueProvider } from "@/context/DownloadQueueContext";
+import DownloadQueue from "@/components/DownloadQueue";
+import DownloadQueueProcessor from "@/components/DownloadQueueProcessor";
 
 // Load fonts with static class names that won't change between renders
 const geistSans = Geist({
@@ -37,7 +40,13 @@ export default function RootLayout({
           {`document.documentElement.classList.add('dark');`}
         </Script>
         
-        {children}
+        <DownloadQueueProvider>
+          {children}
+          
+          {/* Download queue components */}
+          <DownloadQueue />
+          <DownloadQueueProcessor />
+        </DownloadQueueProvider>
       </body>
     </html>
   );

@@ -104,6 +104,7 @@ export default async function BeatmapPage({ params }: BeatmapPageProps) {
   // Download URL
   const downloadUrl = `/api/download/${beatmapset.id}`;
   const downloadFilename = `${beatmapset.artist} - ${beatmapset.title} [${beatmapset.creator}].osz`;
+  const thumbnail = beatmapset.covers['cover@2x'] || beatmapset.covers.cover || '/placeholder.png';
 
   // Calculate representative beatmap information
   const representativeBeatmap = beatmapset.beatmaps && beatmapset.beatmaps.length > 0 
@@ -142,7 +143,15 @@ export default async function BeatmapPage({ params }: BeatmapPageProps) {
             </div>
             
             <div className="mt-4 md:mt-0">
-              <DownloadButton url={downloadUrl} filename={downloadFilename} />
+              <DownloadButton 
+                url={downloadUrl} 
+                filename={downloadFilename}
+                beatmapId={id}
+                title={beatmapset.title}
+                artist={beatmapset.artist}
+                creator={beatmapset.creator}
+                thumbnail={thumbnail}
+              />
             </div>
           </div>
         </div>
