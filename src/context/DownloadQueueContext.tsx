@@ -3,7 +3,6 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 
-// Define types for download items and queue state
 export interface DownloadItem {
   id: string;
   beatmapId: string;
@@ -19,9 +18,11 @@ export interface DownloadItem {
   startTime?: number;
 }
 
+export type DownloadItemInput = Omit<DownloadItem, 'id' | 'progress' | 'status'> & { id?: string };
+
 interface DownloadQueueContextType {
   queue: DownloadItem[];
-  addToQueue: (item: Omit<DownloadItem, 'id' | 'progress' | 'status'>) => void;
+  addToQueue: (item: DownloadItemInput) => string;
   removeFromQueue: (id: string) => void;
   clearQueue: () => void;
   updateProgress: (id: string, progress: number, status?: DownloadItem['status']) => void;
@@ -41,17 +42,22 @@ export function useDownloadQueue() {
 export function DownloadQueueProvider({ children }: { children: ReactNode }) {
   const [queue, setQueue] = useState<DownloadItem[]>([]);
 
-  const addToQueue = useCallback((item: Omit<DownloadItem, 'id' | 'progress' | 'status'>) => {
+  const addToQueue = useCallback((item: DownloadItemInput) => {
+    // Generate ID if not provided
+    const id = item.id || uuidv4();
+    
     setQueue(prev => [
       ...prev,
       {
         ...item,
-        id: uuidv4(),
+        id,
         progress: 0,
         status: 'queued',
         startTime: Date.now()
       }
     ]);
+    
+    return id;
   }, []);
 
   const removeFromQueue = useCallback((id: string) => {

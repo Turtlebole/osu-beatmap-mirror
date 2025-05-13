@@ -1,4 +1,3 @@
-// Use force-dynamic to ensure correct handling of dynamic params
 export const dynamic = 'force-dynamic';
 
 import type { Metadata } from "next";
@@ -16,10 +15,8 @@ type LayoutProps = {
 };
 
 export default async function LocaleLayout(props: LayoutProps) {
-  // Properly await params before accessing
   const { locale: rawLocale } = await Promise.resolve(props.params);
   
-  // Normalize locale to ensure it's just the base code (e.g., 'en' from 'en-US')
   const locale = rawLocale.split('-')[0];
   
   return (

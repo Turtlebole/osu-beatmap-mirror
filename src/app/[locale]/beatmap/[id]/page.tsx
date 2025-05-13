@@ -1,4 +1,3 @@
-// Add dynamic directive for server component
 export const dynamic = 'force-dynamic';
 
 import { Metadata } from "next";
@@ -14,7 +13,6 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { formatTime, formatNumber, formatDate } from '@/lib/utils';
 import { Star, Clock, User, Download, Heart, CheckCircle, Hourglass, CircleSlash, ExternalLink, Terminal, Music } from 'lucide-react';
 
-// Client component for the download button
 import DownloadButton from '@/components/DownloadButton';
 
 type BeatmapPageProps = {
@@ -24,7 +22,6 @@ type BeatmapPageProps = {
   };
 };
 
-// Helper to get status attributes
 const getStatusAttributes = (status: string): { variant: 'default' | 'secondary' | 'outline' | 'destructive', icon?: React.ElementType } => {
   switch (status.toLowerCase()) {
     case 'ranked':
@@ -38,7 +35,6 @@ const getStatusAttributes = (status: string): { variant: 'default' | 'secondary'
   }
 };
 
-// Helper to get game mode icon/name
 const getModeInfo = (mode: string) => {
   switch (mode) {
     case '0': case 'osu': return { name: 'osu!', icon: '●' };
@@ -49,9 +45,7 @@ const getModeInfo = (mode: string) => {
   }
 };
 
-// Generate metadata for SEO
 export async function generateMetadata(props: BeatmapPageProps): Promise<Metadata> {
-  // Properly await params before accessing
   const { id } = await Promise.resolve(props.params);
   
   try {
@@ -72,7 +66,6 @@ export async function generateMetadata(props: BeatmapPageProps): Promise<Metadat
 }
 
 export default async function BeatmapPage(props: BeatmapPageProps) {
-  // Properly await params before accessing
   const { locale, id } = await Promise.resolve(props.params);
   
   if (!id || isNaN(Number(id))) {
@@ -108,24 +101,20 @@ export default async function BeatmapPage(props: BeatmapPageProps) {
   const statusAttributes = getStatusAttributes(beatmapset.status);
   const StatusIcon = statusAttributes.icon;
   
-  // Download URL
   const downloadUrl = `/api/download/${beatmapset.id}`;
   const downloadFilename = `${beatmapset.artist} - ${beatmapset.title} [${beatmapset.creator}].osz`;
   const thumbnail = beatmapset.covers['cover@2x'] || beatmapset.covers.cover || '/placeholder.png';
 
-  // Calculate representative beatmap information
   const representativeBeatmap = beatmapset.beatmaps && beatmapset.beatmaps.length > 0 
     ? beatmapset.beatmaps.sort((a, b) => b.difficulty_rating - a.difficulty_rating)[0]
     : null;
 
-  // Process tags to remove duplicates or ensure unique keys
   const uniqueTags = beatmapset.tags ? 
     Array.from(new Set(beatmapset.tags.split(' ')))
       .filter(tag => tag.trim() !== '') : [];
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-screen-2xl space-y-6">
-      {/* Header Section */}
       <div className="relative h-64 md:h-80 rounded-xl overflow-hidden border-2 border-pink-600/20 shadow-lg">
         <Image
           src={beatmapset.covers['cover@2x'] || beatmapset.covers.cover || '/placeholder.png'}
@@ -165,7 +154,6 @@ export default async function BeatmapPage(props: BeatmapPageProps) {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Left Column - Details Card */}
         <Card className="md:col-span-1">
           <CardHeader>
             <CardTitle>Details</CardTitle>
@@ -236,7 +224,6 @@ export default async function BeatmapPage(props: BeatmapPageProps) {
           </CardContent>
         </Card>
 
-        {/* Right Column - Difficulties */}
         <Card className="md:col-span-2">
           <CardHeader>
             <CardTitle>Difficulties ({beatmapset.beatmaps?.length || 0})</CardTitle>

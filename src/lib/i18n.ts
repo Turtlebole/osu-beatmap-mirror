@@ -45,7 +45,6 @@ export function getTranslations(locale: string) {
 
 export function t(locale: string, key: string): string {
   const translation = getTranslations(locale);
-  // Handle nested keys like "search.placeholder"
   const parts = key.split('.');
   let result: any = translation;
   
@@ -53,7 +52,7 @@ export function t(locale: string, key: string): string {
     if (result && typeof result === 'object' && part in result) {
       result = result[part];
     } else {
-      return key; // Key not found, return the key itself
+      return key;
     }
   }
   
