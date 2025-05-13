@@ -1,5 +1,3 @@
-// Define types directly, remove module declaration/import
-
 const OSU_API_V2_BASE = 'https://osu.ppy.sh/api/v2';
 const OSU_API_V1_BASE = 'https://osu.ppy.sh/api';
 const TOKEN_URL = 'https://osu.ppy.sh/oauth/token';
@@ -22,7 +20,7 @@ export async function getAccessToken(): Promise<string> {
     if (!clientId || !clientSecret) {
         throw new Error('Missing osu! API v2 credentials in environment variables.');
     }
-
+    
     try {
         const response = await fetch(TOKEN_URL, {
             method: 'POST',
@@ -47,13 +45,12 @@ export async function getAccessToken(): Promise<string> {
         const data = await response.json();
         tokenInfo = {
             accessToken: data.access_token,
-            // Set expiry time slightly earlier (e.g., 60 seconds) to be safe
             expiresAt: now + (data.expires_in - 60) * 1000,
         };
         return tokenInfo.accessToken;
     } catch (error) {
         console.error('Error fetching osu! API v2 token:', error);
-        throw error; // Re-throw the error after logging
+        throw error;
     }
 }
 
@@ -66,8 +63,8 @@ export async function searchBeatmapsets(query: string, mode?: string, status?: s
         n: nsfw ? '1' : '0',
     });
     if (mode) params.append('m', mode);
-    if (status) params.append('s', status); // ranked, loved, qualified, pending, graveyard
-    if (extra) params.append('e', extra); // video, storyboard
+    if (status) params.append('s', status);
+    if (extra) params.append('e', extra);
 
     const url = `${OSU_API_V2_BASE}/beatmapsets/search?${params.toString()}`;
 
@@ -81,7 +78,7 @@ export async function searchBeatmapsets(query: string, mode?: string, status?: s
         });
 
         if (!response.ok) {
-            const errorData = await response.text(); // Use text() in case response is not JSON
+            const errorData = await response.text();
             console.error(`osu! API v2 search error (${response.status}):`, errorData);
             throw new Error(`Failed to search beatmapsets: ${response.statusText}`);
         }
@@ -108,7 +105,7 @@ export async function getBeatmapset(beatmapsetId: number | string): Promise<Beat
 
         if (!response.ok) {
              if (response.status === 404) {
-                return null; // Not found
+                return null;
             }
             const errorData = await response.text();
             console.error(`osu! API v2 get beatmapset error (${response.status}):`, errorData);
@@ -124,8 +121,7 @@ export async function getBeatmapset(beatmapsetId: number | string): Promise<Beat
 
 // --- API v1 Functions (Use sparingly) --- 
 
-// Example: Get beatmap info (might have details not easily available in v2 search)
-export async function getBeatmapV1(beatmapId: number | string): Promise<any | null> { // Use specific type later
+export async function getBeatmapV1(beatmapId: number | string): Promise<any | null> {
     if (!legacyApiKey) {
         console.warn('Missing osu! API v1 key. Skipping v1 request.');
         return null;
@@ -140,28 +136,25 @@ export async function getBeatmapV1(beatmapId: number | string): Promise<any | nu
             throw new Error(`Failed to get beatmap (v1) ${beatmapId}: ${response.statusText}`);
         }
         const data = await response.json();
-        return data.length > 0 ? data[0] : null; // v1 returns an array
+        return data.length > 0 ? data[0] : null;
     } catch (error) {
         console.error(`Error getting beatmap (v1) ${beatmapId}:`, error);
-        return null; // Return null on error for v1 as it might be less critical
+        return null;
     }
 }
 
-// These are simplified examples, refer to osu! API v2 documentation for full types
-// https://osu.ppy.sh/docs/index.html
-// You might want to use a tool like quicktype to generate types from API responses
 export interface Beatmapset {
     id: number;
     title: string;
     artist: string;
     creator: string;
     user_id: number;
-    status: string; // ranked, loved, approved, qualified, pending, graveyard
+    status: string;
     submitted_date: string;
     last_updated: string;
     ranked_date: string | null;
-    beatmaps?: Beatmap[]; // Included when fetching a specific beatmapset
-    covers: { // Different cover URLs
+    beatmaps?: Beatmap[];
+    covers: {
         cover: string;
         'cover@2x': string;
         card: string;
@@ -171,36 +164,33 @@ export interface Beatmapset {
         slimcover: string;
         'slimcover@2x': string;
     };
-    source?: string; // Added optional source
-    tags?: string; // Added optional tags (often space-separated)
-    play_count?: number; // Added optional play_count
-    favourite_count?: number; // Added optional favourite_count
-    // ... other fields like favourite_count, play_count, source, tags, etc.
+    source?: string;
+    tags?: string;
+    play_count?: number;
+    favourite_count?: number;
 }
 
 export interface Beatmap {
     id: number;
     beatmapset_id: number;
     difficulty_rating: number;
-    mode: string; // osu, taiko, fruits, mania
+    mode: string;
     status: string;
-    total_length: number; // seconds
-    version: string; // Difficulty name
+    total_length: number;
+    version: string;
     accuracy: number;
     ar: number;
     bpm: number;
     cs: number;
     drain: number;
-    hit_length: number; // seconds
+    hit_length: number;
     passcount: number;
     playcount: number;
     url: string;
-    // ... other fields
 }
 
 export interface BeatmapsetSearchResponse {
     beatmapsets: Beatmapset[];
     total: number;
     cursor_string: string | null;
-    // ... other search metadata
 } 

@@ -6,7 +6,6 @@ import { DownloadQueueProvider } from "@/context/DownloadQueueContext";
 import DownloadQueue from "@/components/DownloadQueue";
 import DownloadQueueProcessor from "@/components/DownloadQueueProcessor";
 
-// Load fonts with static class names that won't change between renders
 const geistSans = Geist({
   subsets: ["latin"],
   display: "swap",
@@ -19,7 +18,6 @@ const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
 });
 
-// Make class names static strings
 const fontClasses = `${geistSans.variable} ${geistMono.variable}`;
 
 export const metadata: Metadata = {
@@ -35,15 +33,12 @@ export default function RootLayout({
   return (
     <html className={fontClasses} suppressHydrationWarning>
       <body className="antialiased min-h-screen flex flex-col dark" suppressHydrationWarning>
-        {/* Force dark mode using next/script for better hydration */}
         <Script id="dark-mode-script" strategy="beforeInteractive">
           {`document.documentElement.classList.add('dark');`}
         </Script>
         
         <DownloadQueueProvider>
           {children}
-          
-          {/* Download queue components */}
           <DownloadQueue />
           <DownloadQueueProcessor />
         </DownloadQueueProvider>

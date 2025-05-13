@@ -3,7 +3,6 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 
-// Define types for download items and queue state
 export interface DownloadItem {
   id: string;
   beatmapId: string;
@@ -19,7 +18,6 @@ export interface DownloadItem {
   startTime?: number;
 }
 
-// A partial version of DownloadItem for adding to queue
 export type DownloadItemInput = Omit<DownloadItem, 'id' | 'progress' | 'status'> & { id?: string };
 
 interface DownloadQueueContextType {
