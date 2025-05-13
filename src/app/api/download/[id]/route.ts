@@ -17,7 +17,8 @@ export async function GET(
   // Prevent caching to ensure fresh downloads
   noStore();
   
-  const id = params.id;
+  // Properly await params before accessing
+  const { id } = await Promise.resolve(params);
   
   if (!id || isNaN(Number(id))) {
     return NextResponse.json(
@@ -31,7 +32,8 @@ export async function GET(
   try {
     beatmapInfo = await getBeatmapset(id);
   } catch (error) {
-    console.error(`Failed to fetch beatmap info for ${id}:`, error);
+    // Log error without detailed stacktrace
+    console.log(`[Info] Failed to fetch beatmap info for ${id}`);
     // Continue anyway, we'll use a generic filename
   }
   
@@ -46,7 +48,7 @@ export async function GET(
     .replace(/\s+/g, ' ');
   
   try {
-    console.log(`Attempting to download beatmap ${id} from official osu! website`);
+    console.log(`[Info] Attempting to download beatmap ${id} from official osu! website`);
     
     // Get access token from osu! API
     const accessToken = await getAccessToken();
@@ -66,7 +68,7 @@ export async function GET(
     });
 
     if (!response.ok) {
-      console.log(`Failed to download from osu! website: ${response.status} ${response.statusText}`);
+      console.log(`[Info] Failed to download from osu! website: ${response.status}`);
       
       // Fall back to mirrors if official download fails
       return await fallbackToMirrors(id, safeFilename);
@@ -78,7 +80,7 @@ export async function GET(
     
     // Check if we got an actual file (non-HTML response)
     if (contentType && contentType.includes('text/html')) {
-      console.log('Received HTML instead of file, using fallback mirrors');
+      console.log('[Info] Received HTML instead of file, using fallback mirrors');
       return await fallbackToMirrors(id, safeFilename);
     }
     
@@ -93,13 +95,15 @@ export async function GET(
       headers.set('Content-Length', contentLength);
     }
     
+    console.log(`[Success] Downloaded beatmap ${id} from official osu! website (${fileData.byteLength} bytes)`);
+    
     // Return the file
     return new NextResponse(fileData, {
       status: 200,
       headers,
     });
   } catch (error) {
-    console.error(`Error downloading from osu! website:`, error);
+    console.log(`[Info] Error downloading from osu! website, trying mirrors`);
     
     // Fall back to mirrors if official download fails
     return await fallbackToMirrors(id, safeFilename);
@@ -119,7 +123,7 @@ async function fallbackToMirrors(id: string, filename: string) {
       getUrl: (id: string) => `https://kitsu.moe/api/d/${id}`,
     },
     {
-      name: 'direct',
+      name: 'beatconnect.io',
       getUrl: (id: string) => `https://beatconnect.io/b/${id}`,
     }
   ];
@@ -132,7 +136,7 @@ async function fallbackToMirrors(id: string, filename: string) {
   // Try mirrors in sequence until one works
   for (const mirror of MIRRORS) {
     try {
-      console.log(`Attempting download from ${mirror.name} for beatmap ${id}`);
+      console.log(`[Info] Attempting download from ${mirror.name} for beatmap ${id}`);
       
       const downloadUrl = mirror.getUrl(id);
       const response = await fetch(downloadUrl, {
@@ -142,17 +146,20 @@ async function fallbackToMirrors(id: string, filename: string) {
           'Accept': 'application/octet-stream',
         },
         redirect: 'follow',
+      }).catch(() => {
+        console.log(`[Info] Network error when connecting to ${mirror.name}`);
+        return null;
       });
 
-      if (!response.ok) {
-        console.log(`Failed to download from ${mirror.name}: ${response.status} ${response.statusText}`);
+      if (!response || !response.ok) {
+        console.log(`[Info] Failed to download from ${mirror.name}`);
         continue; // Try next mirror
       }
       
       // Get the content type to check if we're getting a file
       const contentType = response.headers.get('content-type');
       if (contentType && contentType.includes('text/html')) {
-        console.log(`${mirror.name} returned HTML, not a file`);
+        console.log(`[Info] ${mirror.name} returned HTML, not a file`);
         continue; // Try next mirror
       }
       
@@ -162,29 +169,36 @@ async function fallbackToMirrors(id: string, filename: string) {
         headers.set('Content-Length', contentLength);
       }
       
-      // Get the file data
-      const fileData = await response.arrayBuffer();
-      
-      // If we got an empty file, try next mirror
-      if (!fileData || fileData.byteLength === 0) {
-        console.log(`${mirror.name} returned empty file`);
+      try {
+        // Get the file data
+        const fileData = await response.arrayBuffer();
+        
+        // If we got an empty file, try next mirror
+        if (!fileData || fileData.byteLength === 0) {
+          console.log(`[Info] ${mirror.name} returned empty file`);
+          continue;
+        }
+        
+        console.log(`[Success] Downloaded from ${mirror.name} (${fileData.byteLength} bytes)`);
+        
+        // Return the file
+        return new NextResponse(fileData, {
+          status: 200,
+          headers,
+        });
+      } catch (error) {
+        console.log(`[Info] Error processing response from ${mirror.name}`);
         continue;
       }
-      
-      console.log(`Successfully downloaded from ${mirror.name} (${fileData.byteLength} bytes)`);
-      
-      // Return the file
-      return new NextResponse(fileData, {
-        status: 200,
-        headers,
-      });
     } catch (error) {
-      console.error(`Error downloading from ${mirror.name}:`, error);
+      // Simplified error logging
+      console.log(`[Info] Error with ${mirror.name} mirror`);
       // Continue to next mirror
     }
   }
 
   // If all mirrors fail
+  console.log(`[Error] Failed to download beatmap ${id} from any source`);
   return NextResponse.json(
     { error: 'Failed to download beatmap from any source. Please try again later.' },
     { status: 503 }

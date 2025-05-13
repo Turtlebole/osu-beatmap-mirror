@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Download } from 'lucide-react';
-import { useDownloadQueue } from '@/context/DownloadQueueContext';
+import { useDownloadQueue, DownloadItem } from '@/context/DownloadQueueContext';
 
 interface DownloadButtonProps {
   url: string;
@@ -27,11 +27,11 @@ export default function DownloadButton({
   size = 'lg' 
 }: DownloadButtonProps) {
   const [isDownloading, setIsDownloading] = useState(false);
-  const { addToQueue, updateProgress, queue } = useDownloadQueue();
+  const { addToQueue, updateProgress, queue, setError } = useDownloadQueue();
 
   // Check if this beatmap is already in the queue
   const isInQueue = queue.some(item => item.beatmapId === beatmapId);
-
+  
   const handleDownload = async (e: React.MouseEvent<HTMLAnchorElement>) => {
     e.preventDefault();
     
@@ -39,8 +39,8 @@ export default function DownloadButton({
     
     setIsDownloading(true);
     
-    // Add to queue
-    addToQueue({
+    // Add to queue and get the ID
+    const itemId = addToQueue({
       beatmapId,
       title,
       artist,
@@ -52,8 +52,8 @@ export default function DownloadButton({
     
     // Start download process
     try {
-      // Create a unique identifier for this download
-      const downloadId = queue.length;
+      // Update status to downloading
+      updateProgress(itemId, 0, 'downloading');
       
       // Start the download with progress tracking
       const response = await fetch(url, {
@@ -63,25 +63,56 @@ export default function DownloadButton({
         },
       });
       
+      // Handle non-OK responses
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        // Try to get error details from response
+        let errorMessage = `Download failed with status: ${response.status}`;
+        try {
+          const errorData = await response.json();
+          if (errorData.error) {
+            errorMessage = errorData.error;
+          }
+        } catch {
+          // If we can't parse the error, just use the status code message
+        }
+        
+        setError(itemId, errorMessage);
+        return;
+      }
+      
+      // Get content type to check if we received an error message JSON instead of a file
+      const contentType = response.headers.get('Content-Type');
+      if (contentType && contentType.includes('application/json')) {
+        try {
+          const jsonData = await response.json();
+          if (jsonData.error) {
+            setError(itemId, jsonData.error);
+            return;
+          }
+        } catch {
+          // Continue with the download if JSON parsing fails
+        }
       }
       
       const contentLength = response.headers.get('Content-Length');
       const totalBytes = contentLength ? parseInt(contentLength, 10) : 0;
       
+      // Handle empty response
+      if (totalBytes === 0) {
+        setError(itemId, 'Received empty file from server');
+        return;
+      }
+      
       // Create a reader for the response
       const reader = response.body?.getReader();
-      if (!reader) throw new Error('Failed to get response reader');
+      if (!reader) {
+        setError(itemId, 'Failed to get response data');
+        return;
+      }
       
+      // Create an array to store the received chunks
+      const chunks: Uint8Array[] = [];
       let receivedBytes = 0;
-      
-      // Find the item in the queue
-      const queueItem = queue.find(item => item.beatmapId === beatmapId);
-      if (!queueItem) throw new Error('Queue item not found');
-      
-      // Update status to downloading
-      updateProgress(queueItem.id, 0, 'downloading');
       
       // Process the data chunks
       while (true) {
@@ -89,37 +120,50 @@ export default function DownloadButton({
         
         if (done) {
           // Download complete
-          updateProgress(queueItem.id, 100, 'completed');
           break;
         }
+        
+        // Store this chunk
+        chunks.push(value);
         
         // Calculate progress
         receivedBytes += value.length;
         const progress = totalBytes ? Math.round((receivedBytes / totalBytes) * 100) : 0;
         
         // Update progress in queue
-        updateProgress(queueItem.id, progress);
-        
-        // Trigger download of the received chunk (in a real app, you'd accumulate all chunks)
-        if (done && receivedBytes > 0) {
-          // In a real implementation, we would accumulate all chunks and then create a blob
-          // This is simplified for demonstration
-          const blob = new Blob([value], { type: 'application/octet-stream' });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = filename;
-          a.click();
-          URL.revokeObjectURL(url);
-        }
+        updateProgress(itemId, progress);
       }
+      
+      // Combine all chunks into a single array buffer
+      const allChunks = new Uint8Array(receivedBytes);
+      let position = 0;
+      for (const chunk of chunks) {
+        allChunks.set(chunk, position);
+        position += chunk.length;
+      }
+      
+      // Create a blob and trigger download
+      const blob = new Blob([allChunks], { type: 'application/octet-stream' });
+      const downloadUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = downloadUrl;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      URL.revokeObjectURL(downloadUrl);
+      document.body.removeChild(a);
+      
+      // Update the progress to completed
+      updateProgress(itemId, 100, 'completed');
+      
     } catch (error) {
       console.error('Download error:', error);
-      // Find the item in the queue
-      const queueItem = queue.find(item => item.beatmapId === beatmapId);
-      if (queueItem) {
-        updateProgress(queueItem.id, 0, 'error');
+      // Update with error using our saved ID
+      let errorMessage = 'Download failed unexpectedly';
+      if (error instanceof Error) {
+        errorMessage = error.message;
       }
+      setError(itemId, errorMessage);
     } finally {
       setIsDownloading(false);
     }
