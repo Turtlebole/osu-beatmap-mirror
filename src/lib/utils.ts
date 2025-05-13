@@ -22,3 +22,13 @@ export function formatNumber(num: number | undefined | null): string {
     }
     return num.toLocaleString();
 }
+
+// Function to format dates consistently across server and client
+export function formatDate(date: string | Date): string {
+    if (!date) return 'Unknown';
+    
+    const dateObj = typeof date === 'string' ? new Date(date) : date;
+    
+    // Use a fixed format that doesn't depend on locale
+    return dateObj.toISOString().split('T')[0]; // YYYY-MM-DD format
+}

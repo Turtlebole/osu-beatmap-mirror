@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { formatTime, formatNumber } from '@/lib/utils';
+import { formatTime, formatNumber, formatDate } from '@/lib/utils';
 import { Star, Clock, User, Download, Heart, CheckCircle, Hourglass, CircleSlash, ExternalLink, Terminal, Music } from 'lucide-react';
 
 // Client component for the download button
@@ -179,12 +179,16 @@ export default async function BeatmapPage(props: BeatmapPageProps) {
               <div className="font-medium text-right">{beatmapset.source || 'Original'}</div>
               
               <div className="text-muted-foreground">Submitted</div>
-              <div className="font-medium text-right">{new Date(beatmapset.submitted_date).toLocaleDateString()}</div>
+              <div className="font-medium text-right">
+                {formatDate(beatmapset.submitted_date)}
+              </div>
               
               {beatmapset.ranked_date && (
                 <>
                   <div className="text-muted-foreground">Ranked</div>
-                  <div className="font-medium text-right">{new Date(beatmapset.ranked_date).toLocaleDateString()}</div>
+                  <div className="font-medium text-right">
+                    {formatDate(beatmapset.ranked_date)}
+                  </div>
                 </>
               )}
               

@@ -34,7 +34,7 @@ export default function RootLayout({
 }) {
   return (
     <html className={fontClasses} suppressHydrationWarning>
-      <body className="antialiased min-h-screen flex flex-col dark">
+      <body className="antialiased min-h-screen flex flex-col dark" suppressHydrationWarning>
         {/* Force dark mode using next/script for better hydration */}
         <Script id="dark-mode-script" strategy="beforeInteractive">
           {`document.documentElement.classList.add('dark');`}
