@@ -1,3 +1,6 @@
+// Add dynamic directive for server component
+export const dynamic = 'force-dynamic';
+
 import { Metadata } from "next";
 import { notFound } from 'next/navigation';
 import Image from 'next/image';
@@ -47,9 +50,12 @@ const getModeInfo = (mode: string) => {
 };
 
 // Generate metadata for SEO
-export async function generateMetadata({ params }: BeatmapPageProps): Promise<Metadata> {
+export async function generateMetadata(props: BeatmapPageProps): Promise<Metadata> {
+  // Properly await params before accessing
+  const { id } = await Promise.resolve(props.params);
+  
   try {
-    const beatmapset = await getBeatmapset(params.id);
+    const beatmapset = await getBeatmapset(id);
     if (!beatmapset) {
       return { title: 'Beatmap Not Found' };
     }
@@ -65,8 +71,9 @@ export async function generateMetadata({ params }: BeatmapPageProps): Promise<Me
   }
 }
 
-export default async function BeatmapPage({ params }: BeatmapPageProps) {
-  const { locale, id } = params;
+export default async function BeatmapPage(props: BeatmapPageProps) {
+  // Properly await params before accessing
+  const { locale, id } = await Promise.resolve(props.params);
   
   if (!id || isNaN(Number(id))) {
     return notFound();

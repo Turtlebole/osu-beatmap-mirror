@@ -1,5 +1,5 @@
 // Remove "use client" - This is now a Server Component
-// export const dynamic = 'force-dynamic'; // Keep if needed, or remove for default static generation
+export const dynamic = 'force-dynamic'; // Enable dynamic rendering for searchParams
 
 import { searchBeatmapsets, Beatmapset } from '@/lib/osu-api';
 import { Search, SearchParams } from '@/components/Search';
@@ -16,25 +16,31 @@ type HomePageProps = {
   searchParams: { [key: string]: string | string[] | undefined };
 };
 
-export default async function HomePage({ params, searchParams }: HomePageProps) {
-  const { locale } = params;
-
-  // Extract search params for the API call and pass to Search component
-  const query = typeof searchParams.q === 'string' ? searchParams.q : undefined;
-  const mode = typeof searchParams.mode === 'string' ? searchParams.mode : undefined;
-  const status = typeof searchParams.status === 'string' ? searchParams.status : undefined;
-  // Add other filters like page, NSFW if needed
+export default async function HomePage(props: HomePageProps) {
+  // Use Promise.resolve to properly await the params object
+  const { locale } = await Promise.resolve(props.params);
+  
+  // Extract search params with proper await pattern
+  const { q, mode, status } = await Promise.resolve(props.searchParams);
+  
+  // Process the search params
+  const query = typeof q === 'string' ? q : undefined;
+  const modeValue = typeof mode === 'string' ? mode : undefined;
+  const statusValue = typeof status === 'string' ? status : undefined;
 
   let beatmapsets: Beatmapset[] = [];
   let searchError: string | null = null;
   let totalResults: number = 0;
 
-  const initialSearchParamsForClient: SearchParams = { query, mode, status };
+  const initialSearchParamsForClient: SearchParams = { 
+    query, 
+    mode: modeValue, 
+    status: statusValue 
+  };
 
   try {
     // Fetch data from osu! API based on search params
-    // Use a default query or behavior if no query is present (e.g., fetch recent ranked?)
-    const searchResult = await searchBeatmapsets(query || '', mode, status); // Default to empty search for now
+    const searchResult = await searchBeatmapsets(query || '', modeValue, statusValue);
     beatmapsets = searchResult.beatmapsets;
     totalResults = searchResult.total;
   } catch (error) {

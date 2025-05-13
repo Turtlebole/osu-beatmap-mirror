@@ -1,3 +1,8 @@
+// Increase the maximum response size for large files
+export const dynamic = 'force-dynamic';
+export const fetchCache = 'force-no-store';
+export const revalidate = 0;
+
 import { NextRequest, NextResponse } from 'next/server';
 import { getAccessToken, getBeatmapset } from '@/lib/osu-api';
 import { unstable_noStore as noStore } from 'next/cache';
@@ -185,10 +190,5 @@ async function fallbackToMirrors(id: string, filename: string) {
     { status: 503 }
   );
 }
-
-// Increase the maximum response size for large files
-export const dynamic = 'force-dynamic';
-export const fetchCache = 'force-no-store';
-export const revalidate = 0;
 
 // Optionally, you could implement a rate limiter here to prevent abuse 
