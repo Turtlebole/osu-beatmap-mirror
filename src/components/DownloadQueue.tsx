@@ -91,14 +91,14 @@ export default function DownloadQueue() {
                 }}
               />
               <div className="flex justify-between items-center px-4 py-3">
-                <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2">
                   <div className="bg-pink-600 text-white p-1.5 rounded-full">
-                    <Download className="h-4 w-4" />
+                <Download className="h-4 w-4" />
                   </div>
                   <h2 className="text-sm font-semibold">Download Manager</h2>
                   <div className="flex items-center space-x-1">
                     <div className="px-1.5 py-0.5 rounded-full text-xs bg-primary/10 text-primary font-medium">
-                      {queue.length}
+                    {queue.length}
                     </div>
                     {activeDownloads > 0 && (
                       <div className="flex items-center px-1.5 py-0.5 rounded-full text-xs bg-blue-500/10 text-blue-500 font-medium">
@@ -157,7 +157,7 @@ export default function DownloadQueue() {
                     Failed ({failedDownloads})
                   </TabsTrigger>
                 </TabsList>
-              </div>
+          </div>
               
               <div className="h-[40vh] max-h-80 overflow-y-auto custom-scrollbar py-2 px-4">
                 {filteredItems.length === 0 ? (
@@ -194,16 +194,16 @@ export default function DownloadQueue() {
               </div>
               
               <div className="flex items-center gap-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
+              <Button 
+                variant="ghost" 
+                size="sm" 
                   className="h-7 text-xs bg-red-500/10 text-red-500 hover:bg-red-500/20 hover:text-red-600"
-                  onClick={clearQueue}
+                onClick={clearQueue}
                   disabled={queue.length === 0}
-                >
+              >
                   <Trash2 className="h-3 w-3 mr-1" />
                   Clear all
-                </Button>
+              </Button>
               </div>
             </div>
           </div>
@@ -213,9 +213,9 @@ export default function DownloadQueue() {
       {/* Collapsed state - just a floating button */}
       {isCollapsed && (
         <div className="flex justify-end pb-4 pointer-events-none">
-          <Button
+              <Button 
             className="rounded-full shadow-lg bg-pink-600 hover:bg-pink-700 text-white pointer-events-auto"
-            size="sm"
+                size="sm"
             onClick={() => setIsCollapsed(false)}
           >
             <Download className="h-4 w-4 mr-1.5" />
@@ -223,9 +223,9 @@ export default function DownloadQueue() {
             <span className="bg-white/20 text-white text-xs px-1.5 py-0.5 rounded-full">
               {queue.length}
             </span>
-          </Button>
+              </Button>
         </div>
-      )}
+        )}
     </div>
   );
 }
@@ -432,12 +432,12 @@ function DownloadItem({ item, onRemove }: { item: DownloadItem; onRemove: (id: s
       <div className="flex items-start p-3">
         {/* Beatmap thumbnail */}
         <div className="h-14 w-14 rounded overflow-hidden flex-shrink-0 mr-3 relative">
-          <Image 
-            src={item.thumbnail || '/placeholder.png'} 
-            alt={`${item.artist} - ${item.title}`} 
-            fill 
-            className="object-cover"
-          />
+        <Image 
+          src={item.thumbnail || '/placeholder.png'} 
+          alt={`${item.artist} - ${item.title}`} 
+          fill 
+          className="object-cover"
+        />
           {/* Status overlay */}
           <div className="absolute inset-0 flex items-center justify-center bg-black/40">
             {item.status === 'downloading' && (
@@ -464,7 +464,7 @@ function DownloadItem({ item, onRemove }: { item: DownloadItem; onRemove: (id: s
           
           {/* Artist & creator */}
           <p className="text-xs text-muted-foreground truncate mt-0.5">
-            {item.artist} · {item.creator}
+          {item.artist} · {item.creator}
           </p>
           
           {/* Progress bar */}
@@ -483,8 +483,8 @@ function DownloadItem({ item, onRemove }: { item: DownloadItem; onRemove: (id: s
                 item.status === 'error' ? "bg-red-500" : ""
               }
             />
-          </div>
-          
+        </div>
+        
           {/* Status info and actions */}
           <div className="flex justify-between items-center mt-1">
             {statusBadge}

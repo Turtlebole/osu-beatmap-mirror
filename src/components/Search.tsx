@@ -14,7 +14,10 @@ import {
   ChevronDown,
   ChevronUp, 
   Gauge,
-  Filter
+  Filter,
+  Film,
+  ImageIcon,
+  AlertTriangle
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -268,22 +271,11 @@ export function Search({ initialSearchParams, locale }: SearchComponentProps) {
   return (
     <div className="w-full mb-3">
       <div className={cn(
-        "rounded-xl overflow-hidden shadow-lg backdrop-blur-md bg-background/90 border",
+        "rounded-lg overflow-hidden shadow-sm backdrop-blur-sm bg-background/95 border border-border/20",
         "transition-all transform duration-300",
-        "border border-accent"
-      )}
-      style={{
-        boxShadow: '0 4px 20px -10px rgba(0,0,0,0.3)',
-      }}>
-        {/* Header with gradient accent */}
-        <div className="relative overflow-hidden">
-          <div 
-            className="absolute top-0 left-0 w-full h-1"
-            style={{ 
-              background: 'linear-gradient(90deg, #ec4899 0%, #8b5cf6 50%, #3b82f6 100%)',
-            }}
-          />
-          
+      )}>
+        {/* Search form header - removed gradient line */}
+        <div className="relative">
           <form onSubmit={handleSearch} className="px-4 py-3">
             <div className="flex flex-col sm:flex-row gap-2">
               <div className="relative flex-grow">
@@ -312,7 +304,7 @@ export function Search({ initialSearchParams, locale }: SearchComponentProps) {
                   variant="outline"
                   className={cn(
                     "h-9 px-3 flex items-center text-sm",
-                    isFiltersOpen ? "bg-accent/10" : "",
+                    isFiltersOpen ? "bg-accent/5" : "",
                     activeFilterCount > 0 ? "border-pink-500/30 text-pink-500" : ""
                   )}
                   size="sm"
@@ -340,7 +332,7 @@ export function Search({ initialSearchParams, locale }: SearchComponentProps) {
         {isFiltersOpen && (
           <div 
             ref={panelRef}
-            className="border-t border-accent/30 overflow-hidden"
+            className="border-t border-border/10 overflow-hidden"
             style={{
               maxHeight: '800px',
               transition: 'max-height 0.3s ease-in-out',
@@ -353,17 +345,17 @@ export function Search({ initialSearchParams, locale }: SearchComponentProps) {
               onValueChange={(v) => setActiveTab(v as 'general' | 'advanced')}
               className="w-full"
             >
-              <div className="px-4 border-b border-accent/30">
+              <div className="px-4 border-b border-border/10">
                 <TabsList className="h-9 bg-transparent grid grid-cols-2 w-64">
                   <TabsTrigger 
                     value="general" 
-                    className="text-xs data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-primary data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
+                    className="text-xs data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-pink-500 data-[state=active]:border-b-2 data-[state=active]:border-pink-500 rounded-none"
                   >
                     General Filters
                   </TabsTrigger>
                   <TabsTrigger 
                     value="advanced" 
-                    className="text-xs data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-primary data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
+                    className="text-xs data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-pink-500 data-[state=active]:border-b-2 data-[state=active]:border-pink-500 rounded-none"
                   >
                     Advanced Filters
                   </TabsTrigger>
@@ -373,16 +365,16 @@ export function Search({ initialSearchParams, locale }: SearchComponentProps) {
               <div className="p-4">
                 {activeTab === 'general' ? (
                   <div className="flex flex-wrap gap-3 items-start">
-                    <div className="space-y-1.5 w-[120px]">
+                    <div className="space-y-1.5 w-[130px]">
                       <Label htmlFor="mode" className="text-xs flex items-center">
                         <Music className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
                         Game Mode
                       </Label>
                       <Select value={mode} onValueChange={setMode}>
-                        <SelectTrigger id="mode" className="h-8 text-sm">
+                        <SelectTrigger id="mode" className="w-full h-8 text-sm">
                           <SelectValue placeholder="Any Mode" />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="min-w-[130px]">
                           {gameModes.map(m => (
                             <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
                           ))}
@@ -390,16 +382,16 @@ export function Search({ initialSearchParams, locale }: SearchComponentProps) {
                       </Select>
                     </div>
 
-                    <div className="space-y-1.5 w-[120px]">
+                    <div className="space-y-1.5 w-[130px]">
                       <Label htmlFor="status" className="text-xs flex items-center">
                         <Hash className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
                         Status
                       </Label>
                       <Select value={status} onValueChange={setStatus}>
-                        <SelectTrigger id="status" className="h-8 text-sm">
+                        <SelectTrigger id="status" className="w-full h-8 text-sm">
                           <SelectValue placeholder="Any Status" />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="min-w-[130px]">
                           {beatmapStatuses.map(s => (
                             <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
                           ))}
@@ -407,16 +399,16 @@ export function Search({ initialSearchParams, locale }: SearchComponentProps) {
                       </Select>
                     </div>
                     
-                    <div className="space-y-1.5 w-[140px]">
+                    <div className="space-y-1.5 w-[130px]">
                       <Label htmlFor="sort" className="text-xs flex items-center">
                         <SlidersHorizontal className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
                         Sort By
                       </Label>
                       <Select value={sort} onValueChange={setSort}>
-                        <SelectTrigger id="sort" className="h-8 text-sm">
+                        <SelectTrigger id="sort" className="w-full h-8 text-sm">
                           <SelectValue placeholder="Relevance" />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="min-w-[130px]">
                           {sortOptions.map(s => (
                             <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
                           ))}
@@ -424,16 +416,16 @@ export function Search({ initialSearchParams, locale }: SearchComponentProps) {
                       </Select>
                     </div>
                     
-                    <div className="space-y-1.5 w-[120px]">
+                    <div className="space-y-1.5 w-[130px]">
                       <Label htmlFor="nsfw" className="text-xs flex items-center">
-                        <span className="h-3.5 w-3.5 mr-1.5 text-muted-foreground">🔞</span>
+                        <AlertTriangle className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
                         NSFW Content
                       </Label>
                       <Select value={nsfw} onValueChange={setNsfw}>
-                        <SelectTrigger id="nsfw" className="h-8 text-sm">
+                        <SelectTrigger id="nsfw" className="w-full h-8 text-sm">
                           <SelectValue placeholder="Any" />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="min-w-[130px]">
                           {yesNoOptions.map(o => (
                             <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
                           ))}
@@ -441,16 +433,16 @@ export function Search({ initialSearchParams, locale }: SearchComponentProps) {
                       </Select>
                     </div>
                     
-                    <div className="space-y-1.5 w-[120px]">
+                    <div className="space-y-1.5 w-[130px]">
                       <Label htmlFor="video" className="text-xs flex items-center">
-                        <span className="h-3.5 w-3.5 mr-1.5 text-muted-foreground">🎬</span>
+                        <Film className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
                         Has Video
                       </Label>
                       <Select value={video} onValueChange={setVideo}>
-                        <SelectTrigger id="video" className="h-8 text-sm">
+                        <SelectTrigger id="video" className="w-full h-8 text-sm">
                           <SelectValue placeholder="Any" />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="min-w-[130px]">
                           {yesNoOptions.map(o => (
                             <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
                           ))}
@@ -458,16 +450,16 @@ export function Search({ initialSearchParams, locale }: SearchComponentProps) {
                       </Select>
                     </div>
                     
-                    <div className="space-y-1.5 w-[120px]">
+                    <div className="space-y-1.5 w-[130px]">
                       <Label htmlFor="storyboard" className="text-xs flex items-center">
-                        <span className="h-3.5 w-3.5 mr-1.5 text-muted-foreground">🖼️</span>
+                        <ImageIcon className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
                         Has Storyboard
                       </Label>
                       <Select value={storyboard} onValueChange={setStoryboard}>
-                        <SelectTrigger id="storyboard" className="h-8 text-sm">
+                        <SelectTrigger id="storyboard" className="w-full h-8 text-sm">
                           <SelectValue placeholder="Any" />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="min-w-[130px]">
                           {yesNoOptions.map(o => (
                             <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
                           ))}
@@ -605,7 +597,7 @@ export function Search({ initialSearchParams, locale }: SearchComponentProps) {
             </Tabs>
             
             {/* Footer with actions */}
-            <div className="border-t border-accent/30 px-4 py-2 flex justify-between items-center">
+            <div className="border-t border-border/10 px-4 py-2 flex justify-between items-center">
               <div className="text-xs text-muted-foreground">
                 {activeFilterCount > 0 ? (
                   <span>{activeFilterCount} filter{activeFilterCount !== 1 ? 's' : ''} active</span>
@@ -618,7 +610,7 @@ export function Search({ initialSearchParams, locale }: SearchComponentProps) {
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-7 text-xs hover:bg-red-500/10 text-red-500 hover:text-red-600"
+                  className="h-7 text-xs hover:bg-red-500/5 text-red-500 hover:text-red-600"
                   onClick={resetFilters}
                   disabled={activeFilterCount === 0}
                 >
