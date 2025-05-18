@@ -19,7 +19,6 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { motion, AnimatePresence } from 'framer-motion';
 
 // Define the allowed tab values
 type TabValue = 'all' | 'active' | 'completed' | 'failed';
@@ -161,28 +160,23 @@ export default function DownloadQueue() {
               </div>
               
               <div className="h-[40vh] max-h-80 overflow-y-auto custom-scrollbar py-2 px-4">
-                <AnimatePresence>
-                  {filteredItems.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-full py-8 text-muted-foreground">
-                      <Music className="h-12 w-12 mb-2 text-muted-foreground/50" />
-                      <p className="text-sm">No {activeTab} downloads</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      {filteredItems.map((item) => (
-                        <motion.div
-                          key={item.id}
-                          initial={{ opacity: 0, y: 20 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, x: -10 }}
-                          transition={{ duration: 0.2 }}
-                        >
-                          <DownloadItem item={item} onRemove={removeFromQueue} />
-                        </motion.div>
-                      ))}
-                    </div>
-                  )}
-                </AnimatePresence>
+                {filteredItems.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-full py-8 text-muted-foreground">
+                    <Music className="h-12 w-12 mb-2 text-muted-foreground/50" />
+                    <p className="text-sm">No {activeTab} downloads</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {filteredItems.map((item) => (
+                      <div
+                        key={item.id}
+                        className="transition-all duration-200 opacity-100"
+                      >
+                        <DownloadItem item={item} onRemove={removeFromQueue} />
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </Tabs>
             
