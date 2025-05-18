@@ -52,11 +52,24 @@ export async function downloadFile(
     });
     
     if (!response.ok) {
+      // Try to get more details from the error response
+      try {
+        const errorData = await response.json();
+        if (errorData && errorData.error) {
+          throw new Error(errorData.error);
+        }
+      } catch {}
+      
       throw new Error(`HTTP error! status: ${response.status}`);
     }
     
     const contentLength = response.headers.get('Content-Length');
     const totalBytes = contentLength ? parseInt(contentLength, 10) : 0;
+    
+    // Check for suspiciously small files - likely an error
+    if (totalBytes > 0 && totalBytes < 1000) {
+      throw new Error(`Invalid beatmap file: Size too small (${totalBytes} bytes)`);
+    }
     
     const reader = response.body?.getReader();
     if (!reader) {

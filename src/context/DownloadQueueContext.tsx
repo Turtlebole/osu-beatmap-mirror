@@ -16,6 +16,7 @@ export interface DownloadItem {
   status: 'queued' | 'downloading' | 'completed' | 'error';
   error?: string;
   startTime?: number;
+  endTime?: number;
 }
 
 export type DownloadItemInput = Omit<DownloadItem, 'id' | 'progress' | 'status'> & { id?: string };
@@ -71,6 +72,15 @@ export function DownloadQueueProvider({ children }: { children: ReactNode }) {
   const updateProgress = useCallback((id: string, progress: number, status?: DownloadItem['status']) => {
     setQueue(prev => prev.map(item => {
       if (item.id === id) {
+        // If the status is changing to completed, set the endTime
+        if (status === 'completed' && item.status !== 'completed') {
+          return {
+            ...item,
+            progress,
+            status: status || item.status,
+            endTime: Date.now()
+          };
+        }
         return {
           ...item,
           progress,

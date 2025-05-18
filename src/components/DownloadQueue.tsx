@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import { useDownloadQueue, type DownloadItem } from '@/context/DownloadQueueContext';
 import { Progress } from '@/components/ui/progress';
@@ -12,20 +12,23 @@ import {
   AlertCircle, 
   ChevronUp, 
   ChevronDown,
-  Trash2 
+  Trash2,
+  MoreHorizontal,
+  Clock,
+  Music
 } from 'lucide-react';
-import { 
-  Card, 
-  CardContent, 
-  CardHeader, 
-  CardTitle,
-  CardFooter,
-} from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { motion, AnimatePresence } from 'framer-motion';
+
+// Define the allowed tab values
+type TabValue = 'all' | 'active' | 'completed' | 'failed';
 
 export default function DownloadQueue() {
   const { queue, removeFromQueue, clearQueue } = useDownloadQueue();
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [activeTab, setActiveTab] = useState<TabValue>('all');
+  const panelRef = useRef<HTMLDivElement>(null);
   
   // Auto-open the queue when a new download is added
   useEffect(() => {
@@ -33,6 +36,18 @@ export default function DownloadQueue() {
       setIsCollapsed(false);
     }
   }, [queue.length]);
+
+  // Slide up animation to close queue
+  const handleClose = () => {
+    if (panelRef.current) {
+      panelRef.current.style.transition = 'transform 0.3s ease, opacity 0.3s ease';
+      panelRef.current.style.transform = 'translateY(100%)';
+      panelRef.current.style.opacity = '0';
+      setTimeout(() => setIsCollapsed(true), 300);
+    } else {
+      setIsCollapsed(true);
+    }
+  };
   
   // If queue is empty, don't render the component
   if (queue.length === 0) {
@@ -43,149 +58,404 @@ export default function DownloadQueue() {
   const completedDownloads = queue.filter(item => item.status === 'completed').length;
   const failedDownloads = queue.filter(item => item.status === 'error').length;
 
+  // Filter items based on active tab
+  const filteredItems = queue.filter(item => {
+    if (activeTab === 'all') return true;
+    if (activeTab === 'active') return item.status === 'downloading' || item.status === 'queued';
+    if (activeTab === 'completed') return item.status === 'completed';
+    if (activeTab === 'failed') return item.status === 'error';
+    return true;
+  });
+
   return (
-    <div className="fixed bottom-4 z-50 w-full px-4 sm:px-0 sm:right-4 sm:w-96 max-w-full flex justify-center sm:justify-end pointer-events-none">
-      <Card className="shadow-2xl border rounded-lg w-full max-w-[calc(100vw-2rem)] pointer-events-auto">
-        <CardHeader className="pb-2 cursor-pointer" onClick={() => setIsCollapsed(!isCollapsed)}>
-          <div className="flex justify-between items-center">
-            <CardTitle className="text-base">
-              <div className="flex items-center gap-2">
-                <Download className="h-4 w-4" />
-                <span className="hidden xs:inline">Download Queue</span>
-                <span className="xs:hidden">Downloads</span>
-                {queue.length > 0 && (
-                  <Badge variant="secondary" className="h-5 min-w-5 px-1 flex items-center justify-center">
-                    {queue.length}
-                  </Badge>
+    <div className="fixed bottom-0 z-50 w-full px-4 sm:px-6 lg:px-8 pointer-events-none">
+      <div className="container mx-auto max-w-2xl">
+        {!isCollapsed && (
+          <div 
+            ref={panelRef}
+            className={cn(
+              "rounded-t-xl overflow-hidden shadow-2xl backdrop-blur-md bg-background/90 border pointer-events-auto",
+              "transition-all transform duration-300",
+              "border-t border-l border-r border-accent"
+            )}
+            style={{ 
+              boxShadow: '0 -10px 30px -15px rgba(0,0,0,0.3)',
+              animation: 'slideInFromBottom 0.3s ease forwards'
+            }}
+          >
+            {/* Header with gradient accent */}
+            <div className="relative overflow-hidden">
+              <div 
+                className="absolute top-0 left-0 w-full h-1"
+                style={{ 
+                  background: 'linear-gradient(90deg, #ec4899 0%, #8b5cf6 50%, #3b82f6 100%)',
+                }}
+              />
+              <div className="flex justify-between items-center px-4 py-3">
+                <div className="flex items-center gap-2">
+                  <div className="bg-pink-600 text-white p-1.5 rounded-full">
+                    <Download className="h-4 w-4" />
+                  </div>
+                  <h2 className="text-sm font-semibold">Download Manager</h2>
+                  <div className="flex items-center space-x-1">
+                    <div className="px-1.5 py-0.5 rounded-full text-xs bg-primary/10 text-primary font-medium">
+                      {queue.length}
+                    </div>
+                    {activeDownloads > 0 && (
+                      <div className="flex items-center px-1.5 py-0.5 rounded-full text-xs bg-blue-500/10 text-blue-500 font-medium">
+                        <div className="h-1.5 w-1.5 rounded-full bg-blue-500 mr-1 animate-pulse" />
+                        {activeDownloads}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="ghost" 
+                    size="icon"
+                    className="h-8 w-8 rounded-full"
+                    onClick={handleClose}
+                  >
+                    <ChevronDown className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+            
+            {/* Tab navigation */}
+            <Tabs 
+              defaultValue="all" 
+              value={activeTab}
+              onValueChange={(v: string) => setActiveTab(v as TabValue)}
+              className="w-full"
+            >
+              <div className="px-4 border-b border-accent/30">
+                <TabsList className="grid grid-cols-4 h-9 bg-transparent">
+                  <TabsTrigger 
+                    value="all" 
+                    className="text-xs data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-primary data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none"
+                  >
+                    All ({queue.length})
+                  </TabsTrigger>
+                  <TabsTrigger 
+                    value="active" 
+                    className="text-xs data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-blue-500 data-[state=active]:border-b-2 data-[state=active]:border-blue-500 rounded-none"
+                  >
+                    Active ({activeDownloads})
+                  </TabsTrigger>
+                  <TabsTrigger 
+                    value="completed" 
+                    className="text-xs data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-green-500 data-[state=active]:border-b-2 data-[state=active]:border-green-500 rounded-none"
+                  >
+                    Done ({completedDownloads})
+                  </TabsTrigger>
+                  <TabsTrigger 
+                    value="failed" 
+                    className="text-xs data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:text-red-500 data-[state=active]:border-b-2 data-[state=active]:border-red-500 rounded-none"
+                    disabled={failedDownloads === 0}
+                  >
+                    Failed ({failedDownloads})
+                  </TabsTrigger>
+                </TabsList>
+              </div>
+              
+              <div className="h-[40vh] max-h-80 overflow-y-auto custom-scrollbar py-2 px-4">
+                <AnimatePresence>
+                  {filteredItems.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center h-full py-8 text-muted-foreground">
+                      <Music className="h-12 w-12 mb-2 text-muted-foreground/50" />
+                      <p className="text-sm">No {activeTab} downloads</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {filteredItems.map((item) => (
+                        <motion.div
+                          key={item.id}
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, x: -10 }}
+                          transition={{ duration: 0.2 }}
+                        >
+                          <DownloadItem item={item} onRemove={removeFromQueue} />
+                        </motion.div>
+                      ))}
+                    </div>
+                  )}
+                </AnimatePresence>
+              </div>
+            </Tabs>
+            
+            {/* Footer with actions */}
+            <div className="border-t border-accent/30 px-4 py-2 flex justify-between items-center">
+              <div className="text-xs text-muted-foreground">
+                {activeDownloads > 0 ? (
+                  <span className="flex items-center">
+                    <Clock className="h-3 w-3 mr-1" />
+                    {activeDownloads} active download{activeDownloads !== 1 ? 's' : ''}
+                  </span>
+                ) : (
+                  <span>No active downloads</span>
                 )}
               </div>
-            </CardTitle>
-            <div className="flex items-center gap-1 sm:gap-2">
-              {activeDownloads > 0 && (
-                <Badge variant="outline" className="bg-blue-500/10 text-blue-500 border-blue-500/20 text-xs">
-                  {activeDownloads} active
-                </Badge>
-              )}
-              {completedDownloads > 0 && (
-                <Badge variant="outline" className="bg-green-500/10 text-green-500 border-green-500/20 text-xs hidden xs:inline-flex">
-                  {completedDownloads}
-                </Badge>
-              )}
-              {failedDownloads > 0 && (
-                <Badge variant="outline" className="bg-red-500/10 text-red-500 border-red-500/20 text-xs">
-                  {failedDownloads}
-                </Badge>
-              )}
-              {isCollapsed ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+              
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-xs bg-red-500/10 text-red-500 hover:bg-red-500/20 hover:text-red-600"
+                  onClick={clearQueue}
+                  disabled={queue.length === 0}
+                >
+                  <Trash2 className="h-3 w-3 mr-1" />
+                  Clear all
+                </Button>
+              </div>
             </div>
           </div>
-        </CardHeader>
-        
-        {!isCollapsed && (
-          <>
-            <CardContent className={`max-h-[40vh] sm:max-h-96 overflow-y-auto space-y-2 ${queue.length > 5 ? 'pr-2' : ''}`}>
-              {queue.map((item) => (
-                <DownloadItem key={item.id} item={item} onRemove={removeFromQueue} />
-              ))}
-            </CardContent>
-            
-            <CardFooter className="flex justify-between border-t pt-2">
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="text-destructive hover:text-destructive/80"
-                onClick={clearQueue}
-              >
-                <Trash2 className="h-4 w-4 mr-1" /> 
-                <span className="hidden xs:inline">Clear All</span>
-                <span className="xs:hidden">Clear</span>
-              </Button>
-              <Button 
-                variant="ghost" 
-                size="sm"
-                onClick={() => setIsCollapsed(true)}
-              >
-                <span className="hidden xs:inline">Minimize</span>
-                <span className="xs:hidden">Hide</span>
-              </Button>
-            </CardFooter>
-          </>
         )}
-      </Card>
+      </div>
+      
+      {/* Collapsed state - just a floating button */}
+      {isCollapsed && (
+        <div className="flex justify-end pb-4 pointer-events-none">
+          <Button
+            className="rounded-full shadow-lg bg-pink-600 hover:bg-pink-700 text-white pointer-events-auto"
+            size="sm"
+            onClick={() => setIsCollapsed(false)}
+          >
+            <Download className="h-4 w-4 mr-1.5" />
+            <span className="mr-1">Download Queue</span>
+            <span className="bg-white/20 text-white text-xs px-1.5 py-0.5 rounded-full">
+              {queue.length}
+            </span>
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
 
 function DownloadItem({ item, onRemove }: { item: DownloadItem; onRemove: (id: string) => void }) {
-  let statusIcon;
-  let statusColor;
+  const [elapsedTime, setElapsedTime] = useState<string>('0s');
+  const [completedTime, setCompletedTime] = useState<string>('');
+  const [downloadSpeed, setDownloadSpeed] = useState<string>('');
+  
+  // Calculate and display completed time for finished downloads
+  useEffect(() => {
+    if (item.status === 'completed' && item.startTime && item.endTime) {
+      const elapsed = item.endTime - item.startTime;
+      setCompletedTime(formatTime(elapsed));
+    }
+  }, [item.status, item.startTime, item.endTime]);
+  
+  // Format time helper function
+  const formatTime = (ms: number): string => {
+    if (ms < 60000) {
+      return `${Math.floor(ms / 1000)}s`;
+    } else if (ms < 3600000) {
+      const minutes = Math.floor(ms / 60000);
+      const seconds = Math.floor((ms % 60000) / 1000);
+      return `${minutes}m ${seconds}s`;
+    } else {
+      const hours = Math.floor(ms / 3600000);
+      const minutes = Math.floor((ms % 3600000) / 60000);
+      return `${hours}h ${minutes}m`;
+    }
+  };
+  
+  // Update the timer for active downloads
+  useEffect(() => {
+    if (item.status !== 'downloading') return;
+    
+    const startTime = item.startTime || Date.now();
+    
+    const updateTimer = () => {
+      const now = Date.now();
+      const elapsed = now - startTime;
+      setElapsedTime(formatTime(elapsed));
+      
+      // Calculate and display download speed if we have progress data
+      if (item.progress > 0) {
+        // This is just an estimate since we don't know the exact file size
+        const estimatedDownloadSpeed = calculateDownloadSpeed(elapsed, item.progress);
+        if (estimatedDownloadSpeed) {
+          setDownloadSpeed(estimatedDownloadSpeed);
+        }
+      }
+    };
+    
+    // Update immediately
+    updateTimer();
+    
+    // Then update every second
+    const interval = setInterval(updateTimer, 1000);
+    
+    return () => clearInterval(interval);
+  }, [item.status, item.startTime, item.progress]);
+  
+  // Estimate download speed based on elapsed time and progress percentage
+  const calculateDownloadSpeed = (elapsed: number, progress: number): string | null => {
+    if (elapsed < 1000 || progress < 1) return null; // Need some time to get a meaningful speed
+    
+    // We don't know the exact file size, so just use a rough estimate based on progress percentage
+    // This is not accurate but gives a visual indication of speed
+    const avgBeatmapSize = 30 * 1024 * 1024; // 30MB average estimate
+    const estimatedSizeDownloaded = (avgBeatmapSize * progress) / 100;
+    const speedBps = estimatedSizeDownloaded / (elapsed / 1000);
+    
+    if (speedBps < 1024) {
+      return `${speedBps.toFixed(1)} B/s`;
+    } else if (speedBps < 1024 * 1024) {
+      return `${(speedBps / 1024).toFixed(1)} KB/s`;
+    } else {
+      return `${(speedBps / 1024 / 1024).toFixed(1)} MB/s`;
+    }
+  };
+  
+  let statusBadge;
   
   switch (item.status) {
     case 'downloading':
-      statusIcon = <Download className="h-4 w-4 animate-pulse" />;
-      statusColor = 'text-blue-500';
+      statusBadge = (
+        <div className="bg-blue-500/10 text-blue-500 px-1.5 py-0.5 rounded-full text-xs font-medium flex items-center">
+          <div className="h-1.5 w-1.5 rounded-full bg-blue-500 mr-1 animate-pulse" />
+          {item.progress}%
+        </div>
+      );
       break;
     case 'completed':
-      statusIcon = <CheckCircle2 className="h-4 w-4" />;
-      statusColor = 'text-green-500';
+      statusBadge = (
+        <div className="bg-green-500/10 text-green-500 px-1.5 py-0.5 rounded-full text-xs font-medium flex items-center">
+          <CheckCircle2 className="h-3 w-3 mr-1" />
+          {completedTime ? `Done in ${completedTime}` : 'Done'}
+        </div>
+      );
       break;
     case 'error':
-      statusIcon = <AlertCircle className="h-4 w-4" />;
-      statusColor = 'text-red-500';
+      statusBadge = (
+        <div className="bg-red-500/10 text-red-500 px-1.5 py-0.5 rounded-full text-xs font-medium flex items-center">
+          <AlertCircle className="h-3 w-3 mr-1" />
+          Failed
+        </div>
+      );
       break;
     default:
-      statusIcon = <Download className="h-4 w-4" />;
-      statusColor = 'text-muted-foreground';
+      statusBadge = (
+        <div className="bg-slate-500/10 text-slate-500 px-1.5 py-0.5 rounded-full text-xs font-medium flex items-center">
+          <Clock className="h-3 w-3 mr-1" />
+          Queued
+        </div>
+      );
   }
 
   return (
-    <div className="flex p-2 rounded-md border bg-card/50 relative group">
-      <div className="h-12 w-12 relative rounded overflow-hidden mr-3 flex-shrink-0">
-        <Image 
-          src={item.thumbnail || '/placeholder.png'} 
-          alt={`${item.artist} - ${item.title}`} 
-          fill 
-          className="object-cover"
-        />
-      </div>
-      
-      <div className="flex-grow min-w-0">
-        <div className="flex justify-between items-start">
-          <div className="truncate text-sm font-medium">
-            {item.title}
+    <div className={cn(
+      "relative rounded-lg overflow-hidden transition-all duration-200 group border",
+      item.status === 'downloading' ? "border-blue-500/20 bg-blue-500/5" : 
+      item.status === 'completed' ? "border-green-500/20 bg-green-500/5" : 
+      item.status === 'error' ? "border-red-500/20 bg-red-500/5" : 
+      "border-accent bg-accent/5"
+    )}>
+      <div className="flex items-start p-3">
+        {/* Beatmap thumbnail */}
+        <div className="h-14 w-14 rounded overflow-hidden flex-shrink-0 mr-3 relative">
+          <Image 
+            src={item.thumbnail || '/placeholder.png'} 
+            alt={`${item.artist} - ${item.title}`} 
+            fill 
+            className="object-cover"
+          />
+          {/* Status overlay */}
+          <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+            {item.status === 'downloading' && (
+              <svg className="w-8 h-8" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="white" strokeWidth="2" fill="none" />
+                <path 
+                  className="opacity-75" 
+                  fill="white" 
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  style={{transformOrigin: 'center', animation: 'spin 1s linear infinite'}}
+                />
+              </svg>
+            )}
+            {item.status === 'completed' && <CheckCircle2 className="h-8 w-8 text-white" />}
+            {item.status === 'error' && <AlertCircle className="h-8 w-8 text-white" />}
+            {item.status === 'queued' && <Clock className="h-8 w-8 text-white opacity-75" />}
           </div>
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="h-5 w-5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity ml-1" 
-            onClick={() => onRemove(item.id)}
-          >
-            <X className="h-3 w-3" />
-          </Button>
         </div>
         
-        <div className="text-xs text-muted-foreground truncate">
-          {item.artist} · {item.creator}
-        </div>
-        
-        <div className="mt-1 space-y-1">
-          <Progress value={item.progress} className="h-1.5" />
-          <div className="flex justify-between items-center text-xs">
-            <span className={`flex items-center gap-1 ${statusColor}`}>
-              {statusIcon}
-              <span className="inline-block">
-                {item.status === 'downloading' ? `${item.progress}%` : 
-                 item.status === 'error' ? 'Failed' : 
-                 item.status === 'completed' ? 'Completed' : 'Queued'}
-              </span>
-            </span>
+        {/* Beatmap info */}
+        <div className="flex-grow min-w-0 pr-6">
+          {/* Title */}
+          <h3 className="font-medium text-sm truncate">{item.title}</h3>
+          
+          {/* Artist & creator */}
+          <p className="text-xs text-muted-foreground truncate mt-0.5">
+            {item.artist} · {item.creator}
+          </p>
+          
+          {/* Progress bar */}
+          <div className="mt-2">
+            <Progress 
+              value={item.progress} 
+              className={cn(
+                "h-1 bg-accent/30",
+                item.status === 'downloading' ? "bg-blue-500/20" : 
+                item.status === 'completed' ? "bg-green-500/20" : 
+                item.status === 'error' ? "bg-red-500/20" : ""
+              )}
+              indicatorClassName={
+                item.status === 'downloading' ? "bg-blue-500" : 
+                item.status === 'completed' ? "bg-green-500" : 
+                item.status === 'error' ? "bg-red-500" : ""
+              }
+            />
+          </div>
+          
+          {/* Status info and actions */}
+          <div className="flex justify-between items-center mt-1">
+            {statusBadge}
+            
+            {item.status === 'downloading' && (
+              <div className="text-blue-500 text-xs flex items-center">
+                <Clock className="h-3 w-3 mr-1" />
+                {elapsedTime}
+                {downloadSpeed && (
+                  <span className="ml-2 text-blue-400 bg-blue-500/5 px-1 rounded">
+                    {downloadSpeed}
+                  </span>
+                )}
+              </div>
+            )}
+            
+            {item.status === 'completed' && (
+              <div className="text-green-500 text-xs flex items-center">
+                <Clock className="h-3 w-3 mr-1" />
+                {completedTime}
+              </div>
+            )}
+            
             {item.status === 'error' && item.error && (
-              <span className="text-red-500 text-xs truncate max-w-[120px]" title={item.error}>
+              <div className="text-red-500 text-xs max-w-[180px] truncate" title={item.error}>
                 {item.error}
-              </span>
+              </div>
             )}
           </div>
         </div>
+        
+        {/* Close button */}
+        <Button
+          variant="ghost"
+          size="icon"
+          className={cn(
+            "h-6 w-6 rounded-full absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-black/20 text-white hover:bg-black/40",
+            (item.status === 'error' || item.status === 'completed') && "opacity-100 sm:opacity-60"
+          )}
+          onClick={() => onRemove(item.id)}
+        >
+          <X className="h-3 w-3" />
+        </Button>
       </div>
     </div>
   );
