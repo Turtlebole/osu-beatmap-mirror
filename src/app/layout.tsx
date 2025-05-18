@@ -5,6 +5,7 @@ import Script from "next/script";
 import { DownloadQueueProvider } from "@/context/DownloadQueueContext";
 import DownloadQueue from "@/components/DownloadQueue";
 import DownloadQueueProcessor from "@/components/DownloadQueueProcessor";
+import { Toaster } from "@/components/ui/toaster";
 
 const geistSans = Geist({
   subsets: ["latin"],
@@ -41,6 +42,7 @@ export default function RootLayout({
           {children}
           <DownloadQueue />
           <DownloadQueueProcessor />
+          <Toaster />
         </DownloadQueueProvider>
       </body>
     </html>

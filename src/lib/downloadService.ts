@@ -3,8 +3,10 @@
 import { DownloadItem } from '@/context/DownloadQueueContext';
 
 const MAX_CONCURRENT_DOWNLOADS = 3;
+const MAX_RETRIES = 3;
+const RETRY_DELAY_MS = 2000;
 
-const activeDownloads = new Map<string, AbortController>();
+const activeDownloads = new Map<string, { controller: AbortController, retries: number }>();
 
 export async function processDownloadQueue(
   queue: DownloadItem[],
@@ -12,9 +14,7 @@ export async function processDownloadQueue(
   removeFromQueue: (id: string) => void
 ) {
   const queuedItems = queue.filter(item => item.status === 'queued');
-  
   const currentlyDownloading = queue.filter(item => item.status === 'downloading').length;
-  
   const slotsAvailable = MAX_CONCURRENT_DOWNLOADS - currentlyDownloading;
   
   if (slotsAvailable <= 0 || queuedItems.length === 0) return;
@@ -34,18 +34,21 @@ export async function downloadFile(
   item: DownloadItem,
   updateProgress: (id: string, progress: number, status?: DownloadItem['status']) => void
 ): Promise<void> {
-  const abortController = new AbortController();
-  activeDownloads.set(item.id, abortController);
+  const controller = new AbortController();
+  activeDownloads.set(item.id, { controller, retries: 0 });
   
   try {
     updateProgress(item.id, 0, 'downloading');
     
-    const response = await fetch(item.url, {
+    // Use our server-side proxy API instead of direct download
+    const apiUrl = `/api/proxy-download/${item.beatmapId}`;
+    
+    const response = await fetch(apiUrl, {
       method: 'GET',
       headers: {
         Accept: 'application/octet-stream',
       },
-      signal: abortController.signal,
+      signal: controller.signal,
     });
     
     if (!response.ok) {
@@ -62,6 +65,7 @@ export async function downloadFile(
     
     let receivedBytes = 0;
     let chunks: Uint8Array[] = [];
+    let lastProgressUpdate = Date.now();
     
     while (true) {
       const { done, value } = await reader.read();
@@ -71,8 +75,14 @@ export async function downloadFile(
       chunks.push(value);
       receivedBytes += value.length;
       
-      const progress = totalBytes ? Math.round((receivedBytes / totalBytes) * 100) : 0;
-      updateProgress(item.id, progress);
+      // Limit progress updates to avoid excessive rerenders
+      const now = Date.now();
+      if (now - lastProgressUpdate > 200) {
+        const progress = totalBytes ? Math.round((receivedBytes / totalBytes) * 100) : 
+                                     Math.round((receivedBytes / 1024 / 1024) * 5); // Fallback progress estimation
+        updateProgress(item.id, Math.min(progress, 99)); // Cap at 99% until complete
+        lastProgressUpdate = now;
+      }
     }
     
     const allChunks = new Uint8Array(receivedBytes);
@@ -93,28 +103,49 @@ export async function downloadFile(
     document.body.appendChild(a);
     a.click();
     
+    // Clean up
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
     
     updateProgress(item.id, 100, 'completed');
+    activeDownloads.delete(item.id);
     
   } catch (error: any) {
+    const downloadInfo = activeDownloads.get(item.id);
+    
     if (error.name === 'AbortError') {
       console.log(`Download cancelled for ${item.filename}`);
+      activeDownloads.delete(item.id);
+    } else if (downloadInfo && downloadInfo.retries < MAX_RETRIES) {
+      // Retry logic
+      console.log(`Retrying download for ${item.filename} (${downloadInfo.retries + 1}/${MAX_RETRIES})`);
+      activeDownloads.set(item.id, { 
+        controller: new AbortController(), 
+        retries: downloadInfo.retries + 1 
+      });
+      
+      updateProgress(item.id, 0, 'downloading');
+      
+      // Wait before retrying
+      setTimeout(() => {
+        downloadFile(item, updateProgress).catch(e => {
+          console.error(`Retry failed for ${item.filename}:`, e);
+          updateProgress(item.id, 0, 'error');
+        });
+      }, RETRY_DELAY_MS);
     } else {
       console.error(`Download error for ${item.filename}:`, error);
       updateProgress(item.id, 0, 'error');
+      activeDownloads.delete(item.id);
+      throw error;
     }
-    throw error;
-  } finally {
-    activeDownloads.delete(item.id);
   }
 }
 
 export function cancelDownload(id: string): boolean {
-  const controller = activeDownloads.get(id);
-  if (controller) {
-    controller.abort();
+  const downloadInfo = activeDownloads.get(id);
+  if (downloadInfo) {
+    downloadInfo.controller.abort();
     activeDownloads.delete(id);
     return true;
   }
