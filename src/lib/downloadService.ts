@@ -3,8 +3,8 @@
 import { DownloadItem } from '@/context/DownloadQueueContext';
 
 const MAX_CONCURRENT_DOWNLOADS = 3;
-const MAX_RETRIES = 3;
-const RETRY_DELAY_MS = 2000;
+const MAX_RETRIES = 5;
+const RETRY_DELAY_MS = 1000;
 
 const activeDownloads = new Map<string, { controller: AbortController, retries: number }>();
 
@@ -47,6 +47,7 @@ export async function downloadFile(
       method: 'GET',
       headers: {
         Accept: 'application/octet-stream',
+        'Cache-Control': 'no-cache',
       },
       signal: controller.signal,
     });
@@ -70,6 +71,10 @@ export async function downloadFile(
     if (totalBytes > 0 && totalBytes < 1000) {
       throw new Error(`Invalid beatmap file: Size too small (${totalBytes} bytes)`);
     }
+
+    // Get download source for logging
+    const downloadSource = response.headers.get('X-Download-Source') || 'unknown';
+    console.log(`Downloading from: ${downloadSource}`);
     
     const reader = response.body?.getReader();
     if (!reader) {
@@ -79,6 +84,17 @@ export async function downloadFile(
     let receivedBytes = 0;
     let chunks: Uint8Array[] = [];
     let lastProgressUpdate = Date.now();
+    let lastSpeedCalc = Date.now();
+    let speedSamples: number[] = [];
+    let lastBytes = 0;
+    
+    // Update UI with speed info
+    const showSpeed = (bytesPerSec: number) => {
+      const speedMbps = (bytesPerSec * 8) / (1024 * 1024);
+      const speedText = speedMbps.toFixed(2) + ' Mbps';
+      console.log(`Download speed: ${speedText}`);
+      // Could update UI with speed info here
+    };
     
     while (true) {
       const { done, value } = await reader.read();
@@ -88,9 +104,26 @@ export async function downloadFile(
       chunks.push(value);
       receivedBytes += value.length;
       
-      // Limit progress updates to avoid excessive rerenders
+      // Speed calculation (every 0.5 second)
       const now = Date.now();
-      if (now - lastProgressUpdate > 200) {
+      if (now - lastSpeedCalc > 500) {
+        const intervalSec = (now - lastSpeedCalc) / 1000;
+        const bytesInInterval = receivedBytes - lastBytes;
+        const bytesPerSec = bytesInInterval / intervalSec;
+        
+        speedSamples.push(bytesPerSec);
+        if (speedSamples.length > 5) speedSamples.shift();
+        
+        // Average the last few samples for smoother readings
+        const avgSpeed = speedSamples.reduce((a, b) => a + b, 0) / speedSamples.length;
+        showSpeed(avgSpeed);
+        
+        lastSpeedCalc = now;
+        lastBytes = receivedBytes;
+      }
+      
+      // Limit progress updates to avoid excessive rerenders
+      if (now - lastProgressUpdate > 100) { // More frequent updates (was 200ms)
         const progress = totalBytes ? Math.round((receivedBytes / totalBytes) * 100) : 
                                      Math.round((receivedBytes / 1024 / 1024) * 5); // Fallback progress estimation
         updateProgress(item.id, Math.min(progress, 99)); // Cap at 99% until complete
@@ -98,6 +131,7 @@ export async function downloadFile(
       }
     }
     
+    // Combine all chunks into a single Uint8Array
     const allChunks = new Uint8Array(receivedBytes);
     let position = 0;
     
@@ -106,8 +140,8 @@ export async function downloadFile(
       position += chunk.length;
     }
     
+    // Create Blob and trigger download
     const blob = new Blob([allChunks], { type: 'application/octet-stream' });
-    
     const url = URL.createObjectURL(blob);
     
     const a = document.createElement('a');

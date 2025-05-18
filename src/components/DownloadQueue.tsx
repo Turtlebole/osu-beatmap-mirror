@@ -241,6 +241,7 @@ function DownloadItem({ item, onRemove }: { item: DownloadItem; onRemove: (id: s
   const [elapsedTime, setElapsedTime] = useState<string>('0s');
   const [completedTime, setCompletedTime] = useState<string>('');
   const [downloadSpeed, setDownloadSpeed] = useState<string>('');
+  const [mirrorSource, setMirrorSource] = useState<string>('');
   const [showFastOption, setShowFastOption] = useState(false);
   
   // Calculate and display completed time for finished downloads
@@ -265,6 +266,23 @@ function DownloadItem({ item, onRemove }: { item: DownloadItem; onRemove: (id: s
       return `${hours}h ${minutes}m`;
     }
   };
+  
+  // Check server for mirror source when downloading starts
+  useEffect(() => {
+    if (item.status !== 'downloading') return;
+    
+    // Make a HEAD request to get X-Download-Source header
+    fetch(`/api/proxy-download/${item.beatmapId}`, {
+      method: 'HEAD',
+    }).then(response => {
+      const source = response.headers.get('X-Download-Source');
+      if (source) {
+        setMirrorSource(source);
+      }
+    }).catch(() => {
+      // Silently fail - non-critical
+    });
+  }, [item.status, item.beatmapId]);
   
   // Update the timer for active downloads
   useEffect(() => {
@@ -302,7 +320,7 @@ function DownloadItem({ item, onRemove }: { item: DownloadItem; onRemove: (id: s
     
     // We don't know the exact file size, so just use a rough estimate based on progress percentage
     // This is not accurate but gives a visual indication of speed
-    const avgBeatmapSize = 30 * 1024 * 1024; // 30MB average estimate
+    const avgBeatmapSize = 40 * 1024 * 1024; // 40MB average estimate (increased from 30MB)
     const estimatedSizeDownloaded = (avgBeatmapSize * progress) / 100;
     const speedBps = estimatedSizeDownloaded / (elapsed / 1000);
     
@@ -311,7 +329,15 @@ function DownloadItem({ item, onRemove }: { item: DownloadItem; onRemove: (id: s
     } else if (speedBps < 1024 * 1024) {
       return `${(speedBps / 1024).toFixed(1)} KB/s`;
     } else {
-      return `${(speedBps / 1024 / 1024).toFixed(1)} MB/s`;
+      const mbps = (speedBps / 1024 / 1024);
+      // Add color coding for speed
+      if (mbps < 1) {
+        return `<span class="text-orange-500">${mbps.toFixed(1)} MB/s</span>`;
+      } else if (mbps < 5) {
+        return `<span class="text-green-500">${mbps.toFixed(1)} MB/s</span>`;
+      } else {
+        return `<span class="text-blue-500 font-bold">${mbps.toFixed(1)} MB/s</span>`;
+      }
     }
   };
   
@@ -323,11 +349,12 @@ function DownloadItem({ item, onRemove }: { item: DownloadItem; onRemove: (id: s
     // Get the beatmap ID from the URL
     const beatmapId = item.beatmapId;
     
-    // Direct download URLs (Try different mirrors)
+    // Direct download URLs (prioritize faster mirrors)
     const urls = [
+      `https://catboy.best/d/${beatmapId}`,
+      `https://osu.direct/d/${beatmapId}`,
       `https://txy1.sayobot.cn/beatmaps/download/full/${beatmapId}`,
-      `https://cdn.chimu.moe/beatmaps/${beatmapId}`,
-      `https://kitsu.moe/api/d/${beatmapId}`
+      `https://osu.ppy.sh/beatmapsets/${beatmapId}/download`
     ];
     
     // Open the first URL directly
@@ -340,7 +367,7 @@ function DownloadItem({ item, onRemove }: { item: DownloadItem; onRemove: (id: s
     updateProgress(item.id, 0, 'queued');
   };
   
-  // Show fast download option after 10 seconds for active downloads
+  // Show fast download option after 5 seconds for active downloads (reduced from 10s)
   useEffect(() => {
     if (item.status !== 'downloading') {
       setShowFastOption(false);
@@ -349,7 +376,7 @@ function DownloadItem({ item, onRemove }: { item: DownloadItem; onRemove: (id: s
     
     const timer = setTimeout(() => {
       setShowFastOption(true);
-    }, 10000); // Show after 10 seconds
+    }, 5000); // Show after 5 seconds
     
     return () => clearTimeout(timer);
   }, [item.status]);
@@ -362,6 +389,11 @@ function DownloadItem({ item, onRemove }: { item: DownloadItem; onRemove: (id: s
         <div className="bg-blue-500/10 text-blue-500 px-1.5 py-0.5 rounded-full text-xs font-medium flex items-center">
           <div className="h-1.5 w-1.5 rounded-full bg-blue-500 mr-1 animate-pulse" />
           {item.progress}%
+          {mirrorSource && (
+            <span className="ml-1 bg-blue-500/20 px-1 rounded text-[10px]" title={`Downloading from ${mirrorSource}`}>
+              {mirrorSource}
+            </span>
+          )}
         </div>
       );
       break;
@@ -370,6 +402,11 @@ function DownloadItem({ item, onRemove }: { item: DownloadItem; onRemove: (id: s
         <div className="bg-green-500/10 text-green-500 px-1.5 py-0.5 rounded-full text-xs font-medium flex items-center">
           <CheckCircle2 className="h-3 w-3 mr-1" />
           {completedTime ? `Done in ${completedTime}` : 'Done'}
+          {mirrorSource && (
+            <span className="ml-1 bg-green-500/20 px-1 rounded text-[10px]" title={`Downloaded from ${mirrorSource}`}>
+              {mirrorSource}
+            </span>
+          )}
         </div>
       );
       break;
@@ -463,9 +500,10 @@ function DownloadItem({ item, onRemove }: { item: DownloadItem; onRemove: (id: s
                 <Clock className="h-3 w-3 mr-1" />
                 <span>{elapsedTime}</span>
                 {downloadSpeed && (
-                  <span className="text-blue-400 bg-blue-500/5 px-1 rounded">
-                    {downloadSpeed}
-                  </span>
+                  <span 
+                    className="text-blue-500 bg-blue-500/5 px-1 rounded text-xs font-mono"
+                    dangerouslySetInnerHTML={{ __html: downloadSpeed }}
+                  />
                 )}
                 {showFastOption && (
                   <button 
