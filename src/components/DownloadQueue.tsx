@@ -237,9 +237,11 @@ export default function DownloadQueue() {
 }
 
 function DownloadItem({ item, onRemove }: { item: DownloadItem; onRemove: (id: string) => void }) {
+  const { updateProgress } = useDownloadQueue();
   const [elapsedTime, setElapsedTime] = useState<string>('0s');
   const [completedTime, setCompletedTime] = useState<string>('');
   const [downloadSpeed, setDownloadSpeed] = useState<string>('');
+  const [showFastOption, setShowFastOption] = useState(false);
   
   // Calculate and display completed time for finished downloads
   useEffect(() => {
@@ -312,6 +314,45 @@ function DownloadItem({ item, onRemove }: { item: DownloadItem; onRemove: (id: s
       return `${(speedBps / 1024 / 1024).toFixed(1)} MB/s`;
     }
   };
+  
+  // Add direct download function for slow downloads
+  const handleDirectDownload = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    // Get the beatmap ID from the URL
+    const beatmapId = item.beatmapId;
+    
+    // Direct download URLs (Try different mirrors)
+    const urls = [
+      `https://txy1.sayobot.cn/beatmaps/download/full/${beatmapId}`,
+      `https://cdn.chimu.moe/beatmaps/${beatmapId}`,
+      `https://kitsu.moe/api/d/${beatmapId}`
+    ];
+    
+    // Open the first URL directly
+    window.open(urls[0], '_blank');
+  };
+  
+  // Simple retry function
+  const handleRetry = () => {
+    // Reset download to queued state
+    updateProgress(item.id, 0, 'queued');
+  };
+  
+  // Show fast download option after 10 seconds for active downloads
+  useEffect(() => {
+    if (item.status !== 'downloading') {
+      setShowFastOption(false);
+      return;
+    }
+    
+    const timer = setTimeout(() => {
+      setShowFastOption(true);
+    }, 10000); // Show after 10 seconds
+    
+    return () => clearTimeout(timer);
+  }, [item.status]);
   
   let statusBadge;
   
@@ -418,13 +459,22 @@ function DownloadItem({ item, onRemove }: { item: DownloadItem; onRemove: (id: s
             {statusBadge}
             
             {item.status === 'downloading' && (
-              <div className="text-blue-500 text-xs flex items-center">
+              <div className="text-blue-500 text-xs flex items-center space-x-1">
                 <Clock className="h-3 w-3 mr-1" />
-                {elapsedTime}
+                <span>{elapsedTime}</span>
                 {downloadSpeed && (
-                  <span className="ml-2 text-blue-400 bg-blue-500/5 px-1 rounded">
+                  <span className="text-blue-400 bg-blue-500/5 px-1 rounded">
                     {downloadSpeed}
                   </span>
+                )}
+                {showFastOption && (
+                  <button 
+                    className="ml-1 text-xs px-1 bg-blue-500/10 text-blue-500 hover:bg-blue-500/20 rounded cursor-pointer"
+                    onClick={handleDirectDownload}
+                    title="Download directly from mirror site (may be faster)"
+                  >
+                    Fast Direct
+                  </button>
                 )}
               </div>
             )}
@@ -437,8 +487,24 @@ function DownloadItem({ item, onRemove }: { item: DownloadItem; onRemove: (id: s
             )}
             
             {item.status === 'error' && item.error && (
-              <div className="text-red-500 text-xs max-w-[180px] truncate" title={item.error}>
-                {item.error}
+              <div className="text-red-500 text-xs max-w-[180px] truncate flex items-center gap-1" title={item.error}>
+                <span className="truncate">{item.error}</span>
+                <Button 
+                  variant="ghost" 
+                  className="h-5 w-5 p-0 text-red-500 hover:bg-red-500/10 rounded-full"
+                  onClick={handleRetry}
+                  title="Retry download"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 21h5v-5"/></svg>
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  className="h-5 w-5 p-0 text-blue-500 hover:bg-blue-500/10 rounded-full"
+                  onClick={handleDirectDownload}
+                  title="Direct download from mirror site"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                </Button>
               </div>
             )}
           </div>

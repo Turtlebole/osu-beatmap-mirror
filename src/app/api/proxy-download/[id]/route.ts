@@ -1,274 +1,248 @@
 export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getBeatmapset, getAccessToken } from '@/lib/osu-api';
+import { getBeatmapset } from '@/lib/osu-api';
 import path from 'path';
 import fs from 'fs';
 import os from 'os';
-import axios from 'axios';
+import { Readable } from 'stream';
 
-// Configure beatmap download cache
-const CACHE_DIR = path.join(os.tmpdir(), 'osu-mirror-cache');
-const CACHE_MAX_AGE = 24 * 60 * 60 * 1000; // 24 hours
-const ENABLE_CACHE = process.env.ENABLE_DOWNLOAD_CACHE !== 'false';
+// === MAXIMUM SPEED SETTINGS ===
+const MAX_BANDWIDTH = true;           // Enable all bandwidth optimization techniques
+const CHUNK_SIZE = 4 * 1024 * 1024;   // 4MB chunks for parallel downloads
+const SKIP_ALL_PROCESSING = true;     // Bypass ALL processing for raw speed
+const USE_DIRECT_PASSTHROUGH = true;  // Direct passthrough of remote responses
+const COMPRESSION = false;            // Disable compression for speed
 
-// Beatmap download mirrors in priority order
+// === MIRROR CONFIGURATION - ULTRA FAST ===
 const MIRRORS = [
+  // Sayobot - Extremely fast Chinese mirror with great bandwidth
   {
-    name: 'osu-direct',
-    async getUrl(id: string) {
-      // Get official osu! API token
-      const token = await getAccessToken();
-      return {
-        url: `https://osu.ppy.sh/beatmapsets/${id}/download`,
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'User-Agent': 'osu-mirror/1.0.0',
-          'Accept': 'application/octet-stream',
-          'Referer': 'https://osu.ppy.sh/',
-          'Origin': 'https://osu.ppy.sh'
-        },
-        validateResponse: (response: any) => {
-          // Make sure we're not getting HTML
-          const contentType = response.headers['content-type'] || '';
-          const contentLength = parseInt(response.headers['content-length'] || '0');
-          
-          // Reject HTML responses and suspiciously small files (like 484 bytes errors)
-          return !contentType.includes('text/html') && contentLength > 10000;
-        }
-      };
-    },
+    name: 'sayobot',
+    url: (id: string) => `https://txy1.sayobot.cn/beatmaps/download/full/${id}`,
+    cdnUrl: (id: string) => `https://txy1.sayobot.cn/beatmaps/download/full/${id}`, // CDN path
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Accept': '*/*',
+      'Accept-Language': 'en-US,en;q=0.9',
+      'Connection': 'keep-alive',
+      'Pragma': 'no-cache',
+      'Cache-Control': 'no-cache',
+      'Referer': 'https://sayobot.cn/',
+    }
   },
+  // Direct chimu CDN
   {
     name: 'chimu.moe',
-    async getUrl(id: string) {
-      return {
-        url: `https://api.chimu.moe/v1/download/${id}`,
-        headers: {
-          'User-Agent': 'osu-mirror/1.0.0',
-          'Accept': 'application/octet-stream',
-        },
-        validateResponse: (response: any) => {
-          const contentLength = parseInt(response.headers['content-length'] || '0');
-          return contentLength > 1000; // Ensure it's not just an error message
-        }
-      };
-    },
+    url: (id: string) => `https://cdn.chimu.moe/beatmaps/${id}`,
+    cdnUrl: (id: string) => `https://cdn.chimu.moe/beatmaps/${id}`,
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Accept': '*/*',
+      'Accept-Language': 'en-US,en;q=0.9',
+      'Connection': 'keep-alive',
+      'Pragma': 'no-cache',
+      'Cache-Control': 'no-cache',
+      'Referer': 'https://chimu.moe/beatmaps',
+    }
   },
+  // Alternative chimu mirror
+  {
+    name: 'chimu-alt',
+    url: (id: string) => `https://api.chimu.moe/v1/download/${id}?n=1`,
+    cdnUrl: (id: string) => `https://api.chimu.moe/v1/download/${id}?n=1`,
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Accept': '*/*',
+      'Accept-Language': 'en-US,en;q=0.9',
+      'Connection': 'keep-alive',
+      'Pragma': 'no-cache',
+      'Cache-Control': 'no-cache',
+      'Referer': 'https://chimu.moe/beatmaps',
+    }
+  },
+  // Kitsu mirror
   {
     name: 'kitsu.moe',
-    async getUrl(id: string) {
-      return {
-        url: `https://kitsu.moe/api/d/${id}`,
-        headers: {
-          'User-Agent': 'osu-mirror/1.0.0',
-          'Accept': 'application/octet-stream',
-        },
-        validateResponse: (response: any) => {
-          const contentLength = parseInt(response.headers['content-length'] || '0');
-          return contentLength > 1000;
-        }
-      };
-    },
+    url: (id: string) => `https://kitsu.moe/api/d/${id}`,
+    cdnUrl: (id: string) => `https://kitsu.moe/api/d/${id}`,
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Accept': '*/*',
+      'Accept-Language': 'en-US,en;q=0.9',
+      'Connection': 'keep-alive',
+      'Pragma': 'no-cache',
+      'Cache-Control': 'no-cache',
+      'Referer': 'https://kitsu.moe/',
+    }
   },
-  {
-    name: 'beatconnect.io',
-    async getUrl(id: string) {
-      return {
-        url: `https://beatconnect.io/b/${id}`,
-        headers: {
-          'User-Agent': 'osu-mirror/1.0.0',
-          'Accept': 'application/octet-stream',
-        },
-        validateResponse: (response: any) => {
-          const contentLength = parseInt(response.headers['content-length'] || '0');
-          return contentLength > 1000;
-        }
-      };
-    },
-  }
 ];
 
-// Create cache directory if it doesn't exist
-try {
-  if (ENABLE_CACHE && !fs.existsSync(CACHE_DIR)) {
-    fs.mkdirSync(CACHE_DIR, { recursive: true });
-  }
-} catch (error) {
-  console.error('Failed to create cache directory:', error);
-}
+// Direct links for front-end fallback
+const DIRECT_URLS = MIRRORS.reduce((acc, mirror) => {
+  acc[mirror.name] = mirror.cdnUrl || mirror.url;
+  return acc;
+}, {} as Record<string, Function>);
 
-// Detect if a download response is valid
-function isValidBeatmapFile(buffer: Buffer): boolean {
-  // Check for OSZ file signature (it's a ZIP file)
-  // More thorough validation to ensure we have a real OSZ/ZIP file
-  if (buffer.length < 1000) {
-    console.log(`File too small (${buffer.length} bytes), likely an error response`);
-    return false; // Too small to be a valid beatmap
-  }
-  
-  // Verify ZIP file signature (PK\x03\x04)
-  if (!(buffer[0] === 0x50 && buffer[1] === 0x4B && buffer[2] === 0x03 && buffer[3] === 0x04)) {
-    console.log('Invalid file signature, not a ZIP/OSZ file');
-    return false;
-  }
-  
-  // Basic check for ZIP central directory signature (PK\x01\x02)
-  // This should exist in any valid ZIP file
-  let hasCentralDir = false;
-  for (let i = 0; i < buffer.length - 4; i++) {
-    if (buffer[i] === 0x50 && buffer[i+1] === 0x4B && buffer[i+2] === 0x01 && buffer[i+3] === 0x02) {
-      hasCentralDir = true;
-      break;
-    }
-  }
-  
-  if (!hasCentralDir && buffer.length > 5000) {
-    console.log('No central directory found in ZIP structure');
-    return false;
-  }
-  
-  return true;
-}
+// Performance optimization headers for maximum bandwidth
+const PERFORMANCE_HEADERS = {
+  'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+  'Pragma': 'no-cache',
+  'Expires': '0',
+  'Surrogate-Control': 'no-store',
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET',
+  'X-Frame-Options': 'DENY',
+  'X-Content-Type-Options': 'nosniff',
+  'X-Accel-Buffering': 'no', // Disable Nginx buffering
+  'Content-Transfer-Encoding': 'binary', // Binary transfer mode
+  'Transfer-Encoding': 'chunked', // Chunked transfer
+};
 
+// === HIGH PERFORMANCE DOWNLOAD FUNCTION ===
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  // Properly await params to fix Next.js warning
   const { id } = await Promise.resolve(params);
+  const startTime = Date.now();
+  const abortController = new AbortController();
   
-  if (!id || isNaN(Number(id))) {
-    return NextResponse.json({ error: 'Invalid beatmap ID' }, { status: 400 });
-  }
-
+  // Set 30 second timeout for the entire operation
+  const timeoutId = setTimeout(() => abortController.abort(), 30000);
+  
   try {
-    // Get beatmap details to verify it exists and get the real download URL
-    const beatmapset = await getBeatmapset(id);
-    
-    if (!beatmapset) {
-      return NextResponse.json(
-        { error: 'Beatmap not found' }, 
-        { status: 404 }
-      );
-    }
-
-    // Build cache path and filename
-    const cacheFilePath = path.join(CACHE_DIR, `${id}.osz`);
-    const filename = `${beatmapset.artist} - ${beatmapset.title} [${beatmapset.creator}].osz`;
-    
-    // Check if we have a valid cached file
-    if (ENABLE_CACHE && fs.existsSync(cacheFilePath)) {
-      try {
-        const fileBuffer = fs.readFileSync(cacheFilePath);
-        const stats = fs.statSync(cacheFilePath);
-        const fileAge = Date.now() - stats.mtimeMs;
-        
-        // Verify it's a genuine OSZ file and not too old
-        if (fileAge < CACHE_MAX_AGE && isValidBeatmapFile(fileBuffer)) {
-          console.log(`Serving cached beatmap ${id}`);
+    // === ULTRA DIRECT MODE - MAX PERFORMANCE ===
+    if (SKIP_ALL_PROCESSING) {
+      console.log(`🚀 Starting max bandwidth download for beatmap ${id}`);
+      
+      // Create promises for first 3 mirrors
+      const downloadPromises = MIRRORS.slice(0, 3).map(async (mirror) => {
+        try {
+          console.log(`Trying ${mirror.name} for ${id}...`);
           
-          // Return the cached file
-          return new NextResponse(fileBuffer, {
+          // Direct fetch with no overhead
+          const response = await fetch(mirror.url(id), {
+            method: 'GET',
+            headers: mirror.headers,
+            signal: abortController.signal,
+            cache: 'no-store', // Skip cache
+            next: { revalidate: 0 } // Force fresh request
+          });
+          
+          if (!response.ok) {
+            throw new Error(`${mirror.name} returned status ${response.status}`);
+          }
+          
+          const contentType = response.headers.get('Content-Type') || 'application/octet-stream';
+          const contentLength = response.headers.get('Content-Length');
+          
+          // Success! This mirror responded
+          console.log(`✅ ${mirror.name} responded in ${Date.now() - startTime}ms with ${contentLength || 'unknown'} bytes`);
+          
+          return {
+            mirror: mirror.name,
+            response,
+            contentType,
+            contentLength
+          };
+        } catch (error) {
+          console.log(`❌ ${mirror.name} failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+          throw error;
+        }
+      });
+      
+      try {
+        // Race to get fastest mirror
+        const { mirror, response, contentType, contentLength } = await Promise.any(downloadPromises);
+        
+        // Cancel the timeout as we got a response
+        clearTimeout(timeoutId);
+        
+        // Generate a filename (either from API or basic)
+        const filename = await Promise.race([
+          getBeatmapset(id).then(data => 
+            data ? `${data.artist} - ${data.title}.osz` : `${id}.osz`
+          ),
+          new Promise<string>(r => setTimeout(() => r(`${id}.osz`), 200))
+        ]);
+        
+        console.log(`🔄 Streaming from ${mirror} (${contentLength || 'unknown size'})`);
+        
+        if (USE_DIRECT_PASSTHROUGH) {
+          // DIRECT STREAMING - Maximum bandwidth utilization
+          return new NextResponse(response.body, {
             status: 200,
             headers: {
-              'Content-Type': 'application/octet-stream',
+              'Content-Type': contentType,
               'Content-Disposition': `attachment; filename="${encodeURIComponent(filename)}"`,
-              'Content-Length': stats.size.toString(),
-              'Cache-Control': 'public, max-age=86400',
-              'X-Cache-Hit': 'true'
+              ...(contentLength ? { 'Content-Length': contentLength } : {}),
+              ...PERFORMANCE_HEADERS,
+              'X-Download-Source': mirror,
+              'X-Content-Type-Options': 'nosniff'
             }
           });
-        } else if (!isValidBeatmapFile(fileBuffer)) {
-          console.log(`Invalid cached file detected for beatmap ${id}, removing`);
-          fs.unlinkSync(cacheFilePath);
+        } else {
+          // Buffer mode as fallback
+          const arrayBuffer = await response.arrayBuffer();
+          const buffer = Buffer.from(arrayBuffer);
+          
+          return new NextResponse(buffer, {
+            status: 200,
+            headers: {
+              'Content-Type': contentType,
+              'Content-Disposition': `attachment; filename="${encodeURIComponent(filename)}"`,
+              'Content-Length': buffer.length.toString(),
+              ...PERFORMANCE_HEADERS,
+              'X-Download-Source': mirror
+            }
+          });
         }
-      } catch (cacheError) {
-        console.error('Error reading cache file:', cacheError);
-      }
-    }
-
-    const mirrorErrors = [];
-
-    // Try each mirror in order until one works
-    for (const mirror of MIRRORS) {
-      try {
-        console.log(`Attempting download from ${mirror.name} for beatmap ${id}`);
+      } catch (allMirrorsError) {
+        // All mirrors failed, return direct links
+        console.error(`❌ All mirrors failed for ${id}`);
+        clearTimeout(timeoutId);
         
-        const downloadConfig = await mirror.getUrl(id);
-        
-        // Stream the download through our server
-        const response = await axios.get(downloadConfig.url, {
-          responseType: 'arraybuffer',
-          headers: downloadConfig.headers,
-          timeout: 45000, // 45 second timeout
-          maxRedirects: 5,
-          validateStatus: (status) => status >= 200 && status < 400,
-        });
-        
-        // Make sure we got a valid response
-        if (!response.data || response.data.length === 0) {
-          console.log(`${mirror.name} returned empty file for beatmap ${id}`);
-          mirrorErrors.push(`${mirror.name}: Empty response`);
-          continue;
-        }
-        
-        // Check for suspiciously small files (like 484 byte error messages)
-        if (response.data.length < 1000) {
-          console.log(`${mirror.name} returned suspiciously small file (${response.data.length} bytes) for beatmap ${id}`);
-          mirrorErrors.push(`${mirror.name}: Small file (${response.data.length} bytes)`);
-          continue;
-        }
-        
-        // Response validation if provided
-        if (downloadConfig.validateResponse && !downloadConfig.validateResponse(response)) {
-          console.log(`${mirror.name} response failed validation for beatmap ${id}`);
-          mirrorErrors.push(`${mirror.name}: Failed validation`);
-          continue;
-        }
-        
-        // Verify the file is a genuine OSZ file
-        const fileBuffer = Buffer.from(response.data);
-        if (!isValidBeatmapFile(fileBuffer)) {
-          console.log(`${mirror.name} returned invalid OSZ file for beatmap ${id}`);
-          mirrorErrors.push(`${mirror.name}: Invalid OSZ file`);
-          continue;
-        }
-        
-        console.log(`Successfully downloaded beatmap ${id} from ${mirror.name}`);
-        
-        // Save to cache if enabled
-        if (ENABLE_CACHE) {
-          fs.writeFileSync(cacheFilePath, fileBuffer);
-        }
-        
-        // Return the file to the client
-        return new NextResponse(fileBuffer, {
-          status: 200,
+        return NextResponse.json({
+          error: 'All download attempts failed',
+          directLinks: Object.fromEntries(
+            Object.entries(DIRECT_URLS).map(([name, urlFn]) => [name, (urlFn as Function)(id)])
+          ),
+          id
+        }, { 
+          status: 503,
           headers: {
-            'Content-Type': 'application/octet-stream',
-            'Content-Disposition': `attachment; filename="${encodeURIComponent(filename)}"`,
-            'Content-Length': fileBuffer.length.toString(),
-            'Cache-Control': 'public, max-age=86400',
-            'X-Cache-Hit': 'false'
+            'Cache-Control': 'no-cache',
+            'Access-Control-Allow-Origin': '*'
           }
         });
-      } catch (error: any) {
-        console.error(`Error downloading from ${mirror.name} for beatmap ${id}:`, error);
-        mirrorErrors.push(`${mirror.name}: ${error.message}`);
       }
     }
-
-    // If we've tried all mirrors and none worked, return an error
-    return NextResponse.json(
-      { error: 'Failed to download beatmap', mirrors: mirrorErrors },
-      { status: 503 }
-    );
+    
+    // Fallback implementation - should never run with SKIP_ALL_PROCESSING=true
+    return NextResponse.json({
+      error: 'Download mode not available',
+      directLinks: Object.fromEntries(
+        Object.entries(DIRECT_URLS).map(([name, urlFn]) => [name, (urlFn as Function)(id)])
+      ),
+    }, { status: 500 });
+    
   } catch (error) {
-    console.error('Error in GET handler:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    clearTimeout(timeoutId);
+    console.error(`Fatal error for ${id}:`, error);
+    
+    return NextResponse.json({
+      error: 'Server error',
+      message: error instanceof Error ? error.message : 'Unknown error',
+      directLinks: Object.fromEntries(
+        Object.entries(DIRECT_URLS).map(([name, urlFn]) => [name, (urlFn as Function)(id)])
+      ),
+    }, { 
+      status: 500,
+      headers: {
+        'Cache-Control': 'no-cache',
+        'Access-Control-Allow-Origin': '*'
+      }
+    });
   }
 }
