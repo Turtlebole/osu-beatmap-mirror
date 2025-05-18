@@ -15,7 +15,7 @@ export async function GET(
   if (!id || isNaN(Number(id))) {
     return NextResponse.json({ error: 'Invalid beatmap ID' }, { status: 400 });
   }
-
+  
   // Forward to our new proxy download endpoint
   return NextResponse.redirect(new URL(`/api/proxy-download/${id}`, request.url));
 } 
