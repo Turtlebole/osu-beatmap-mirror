@@ -119,6 +119,184 @@ export async function getBeatmapset(beatmapsetId: number | string): Promise<Beat
     }
 }
 
+// --- User Scores Functions ---
+
+/**
+ * Get a user's scores on a specific beatmap
+ * @param userId User ID
+ * @param beatmapId Beatmap ID (not beatmapset ID)
+ * @param accessToken User's access token from session
+ */
+export async function getUserBeatmapScores(
+    userId: string | number, 
+    beatmapId: string | number, 
+    accessToken: string
+): Promise<UserScore[]> {
+    const url = `${OSU_API_V2_BASE}/beatmaps/${beatmapId}/scores/users/${userId}`;
+
+    try {
+        const response = await fetch(url, {
+            headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+            },
+        });
+
+        if (!response.ok) {
+            if (response.status === 404) {
+                return []; // No scores found
+            }
+            const errorData = await response.text();
+            console.error(`osu! API v2 get user scores error (${response.status}):`, errorData);
+            throw new Error(`Failed to get user scores: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        return data.scores || [];
+    } catch (error) {
+        console.error(`Error getting user scores:`, error);
+        return []; // Return empty array on error
+    }
+}
+
+/**
+ * Get a user's best scores (top plays)
+ * @param userId User ID
+ * @param accessToken User's access token from session
+ * @param limit Number of scores to return (default: 50, max: 100)
+ */
+export async function getUserBestScores(
+    userId: string | number,
+    accessToken: string,
+    limit: number = 50
+): Promise<UserScore[]> {
+    const url = `${OSU_API_V2_BASE}/users/${userId}/scores/best?limit=${Math.min(limit, 100)}`;
+    
+    try {
+        const response = await fetch(url, {
+            headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+            },
+        });
+
+        if (!response.ok) {
+            const errorData = await response.text();
+            console.error(`osu! API v2 get user best scores error (${response.status}):`, errorData);
+            throw new Error(`Failed to get user best scores: ${response.statusText}`);
+        }
+
+        return await response.json() as UserScore[];
+    } catch (error) {
+        console.error(`Error getting user best scores:`, error);
+        return []; // Return empty array on error
+    }
+}
+
+/**
+ * Get a user's recent plays
+ * @param userId User ID
+ * @param accessToken User's access token from session
+ * @param limit Number of scores to return (default: 50, max: 100)
+ */
+export async function getUserRecentScores(
+    userId: string | number,
+    accessToken: string,
+    limit: number = 50,
+    includeFails: boolean = true
+): Promise<UserScore[]> {
+    const url = `${OSU_API_V2_BASE}/users/${userId}/scores/recent?limit=${Math.min(limit, 100)}&include_fails=${includeFails ? 1 : 0}`;
+    
+    try {
+        const response = await fetch(url, {
+            headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+            },
+        });
+
+        if (!response.ok) {
+            const errorData = await response.text();
+            console.error(`osu! API v2 get user recent scores error (${response.status}):`, errorData);
+            throw new Error(`Failed to get user recent scores: ${response.statusText}`);
+        }
+
+        return await response.json() as UserScore[];
+    } catch (error) {
+        console.error(`Error getting user recent scores:`, error);
+        return []; // Return empty array on error
+    }
+}
+
+/**
+ * Get user profile data
+ * @param userId User ID
+ * @param accessToken User's access token from session
+ */
+export async function getUserProfile(
+    userId: string | number,
+    accessToken: string
+): Promise<UserProfile | null> {
+    const url = `${OSU_API_V2_BASE}/users/${userId}`;
+    
+    try {
+        const response = await fetch(url, {
+            headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+            },
+        });
+
+        if (!response.ok) {
+            const errorData = await response.text();
+            console.error(`osu! API v2 get user profile error (${response.status}):`, errorData);
+            throw new Error(`Failed to get user profile: ${response.statusText}`);
+        }
+
+        return await response.json() as UserProfile;
+    } catch (error) {
+        console.error(`Error getting user profile:`, error);
+        return null;
+    }
+}
+
+/**
+ * Get scores for a specific beatmap difficulty (top 50)
+ * @param beatmapId Beatmap ID (not beatmapset ID)
+ */
+export async function getBeatmapScores(beatmapId: string | number): Promise<BeatmapScores | null> {
+    const accessToken = await getAccessToken();
+    const url = `${OSU_API_V2_BASE}/beatmaps/${beatmapId}/scores`;
+
+    try {
+        const response = await fetch(url, {
+            headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+            },
+        });
+
+        if (!response.ok) {
+            if (response.status === 404) {
+                return null;
+            }
+            const errorData = await response.text();
+            console.error(`osu! API v2 get beatmap scores error (${response.status}):`, errorData);
+            throw new Error(`Failed to get beatmap scores: ${response.statusText}`);
+        }
+
+        return await response.json() as BeatmapScores;
+    } catch (error) {
+        console.error(`Error getting beatmap scores:`, error);
+        return null;
+    }
+}
+
 // --- API v1 Functions (Use sparingly) --- 
 
 export async function getBeatmapV1(beatmapId: number | string): Promise<any | null> {
@@ -193,4 +371,112 @@ export interface BeatmapsetSearchResponse {
     beatmapsets: Beatmapset[];
     total: number;
     cursor_string: string | null;
+}
+
+export interface UserScore {
+    id: number;
+    user_id: number;
+    accuracy: number;
+    mods: string[];
+    score: number;
+    max_combo: number;
+    perfect: boolean;
+    statistics: {
+        count_50: number;
+        count_100: number;
+        count_300: number;
+        count_geki: number;
+        count_katu: number;
+        count_miss: number;
+    };
+    rank: string;
+    created_at: string;
+    best_id: number | null;
+    pp: number | null;
+    mode: string;
+    mode_int: number;
+    replay: boolean;
+    user: {
+        id: number;
+        username: string;
+        avatar_url: string;
+        country_code: string;
+        is_supporter: boolean;
+        is_active: boolean;
+        is_bot: boolean;
+    };
+    beatmap?: {
+        id: number;
+        version: string;
+        difficulty_rating: number;
+    };
+    beatmapset?: {
+        id: number;
+        title: string;
+        artist: string;
+        covers: {
+            cover: string;
+            'cover@2x': string;
+            card: string;
+            'card@2x': string;
+            list: string;
+            'list@2x': string;
+            slimcover: string;
+            'slimcover@2x': string;
+        };
+    };
+}
+
+export interface BeatmapScores {
+    scores: UserScore[];
+}
+
+export interface UserProfile {
+    id: number;
+    username: string;
+    join_date: string;
+    country: {
+        code: string;
+        name: string;
+    };
+    avatar_url: string;
+    cover_url: string;
+    cover: {
+        custom_url: string | null;
+        url: string;
+        id: string | null;
+    };
+    is_supporter: boolean;
+    has_supported: boolean;
+    support_level: number;
+    kudosu: {
+        total: number;
+        available: number;
+    };
+    max_blocks: number;
+    max_friends: number;
+    playmode: string;
+    playstyle: string[];
+    statistics: {
+        level: {
+            current: number;
+            progress: number;
+        };
+        pp: number;
+        global_rank: number;
+        country_rank: number;
+        ranked_score: number;
+        hit_accuracy: number;
+        play_count: number;
+        play_time: number;
+        total_score: number;
+        total_hits: number;
+        maximum_combo: number;
+        replays_watched_by_others: number;
+        is_ranked: boolean;
+    };
+    rank_history?: {
+        mode: string;
+        data: number[];
+    };
 } 

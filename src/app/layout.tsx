@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Script from "next/script";
+import Providers from "@/components/Providers";
 import { DownloadQueueProvider } from "@/context/DownloadQueueContext";
 import DownloadQueue from "@/components/DownloadQueue";
 import DownloadQueueProcessor from "@/components/DownloadQueueProcessor";
@@ -38,12 +39,14 @@ export default function RootLayout({
           {`document.documentElement.classList.add('dark');`}
         </Script>
         
-        <DownloadQueueProvider>
-          {children}
-          <DownloadQueue />
-          <DownloadQueueProcessor />
-          <Toaster />
-        </DownloadQueueProvider>
+        <Providers>
+          <DownloadQueueProvider>
+            {children}
+            <DownloadQueue />
+            <DownloadQueueProcessor />
+            <Toaster />
+          </DownloadQueueProvider>
+        </Providers>
       </body>
     </html>
   );

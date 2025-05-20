@@ -2,7 +2,9 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Search, Globe, Download, ChevronDown, Home, Flame, Clock, Bookmark } from 'lucide-react';
+import { Search, Globe, Download, ChevronDown, Home, Flame, Clock, Bookmark, User, LogOut } from 'lucide-react';
+import { useSession, signOut } from 'next-auth/react';
+import Image from 'next/image';
 
 import { Button } from "@/components/ui/button";
 import {
@@ -10,6 +12,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import {
   Sheet,
@@ -32,6 +35,13 @@ type NavbarProps = {
 
 export function Navbar({ locale }: NavbarProps) {
   const pathname = usePathname();
+  const { data: session, status } = useSession();
+  const isAuthenticated = status === "authenticated";
+  
+  // Use flagcdn.com instead of osu's flag service
+  const getCountryFlagUrl = (countryCode: string) => {
+    return `https://flagcdn.com/w40/${countryCode.toLowerCase()}.png`;
+  };
 
   const navLinks = [
     { href: `/${locale}/home`, label: 'Home', icon: Home },
@@ -91,6 +101,78 @@ export function Navbar({ locale }: NavbarProps) {
                 <span className="sr-only md:not-sr-only md:inline-block">Search</span>
               </Link>
             </Button>
+
+            {/* User Menu - Show when authenticated */}
+            {isAuthenticated && session?.user ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm" className="relative h-8 w-8 rounded-sm overflow-hidden p-0">
+                    <Image 
+                      src={session.user.image || "https://a.ppy.sh/0"}
+                      alt={session.user.name || "User"}
+                      fill
+                      className="object-cover"
+                    />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <div className="flex items-center gap-2 p-2">
+                    <div className="relative h-8 w-8 rounded-sm overflow-hidden flex-shrink-0">
+                      <Image 
+                        src={session.user.image || "https://a.ppy.sh/0"} 
+                        alt={session.user.name || "User"} 
+                        fill
+                        className="object-cover"
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium">{session.user.name}</p>
+                      {session.user.country?.code && (
+                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                          {session.user.country.code && (
+                            <Image 
+                              src={getCountryFlagUrl(session.user.country.code)}
+                              alt={session.user.country.code}
+                              width={16}
+                              height={12}
+                              className="rounded-[1px]"
+                            />
+                          )}
+                          <span>{session.user.country?.name}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <DropdownMenuSeparator />
+                  
+                  <DropdownMenuItem asChild>
+                    <Link href={`/${locale}/profile`} className="cursor-pointer">
+                      <User className="h-4 w-4 mr-2" />
+                      <span>Profile</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  
+                  <DropdownMenuItem 
+                    onClick={() => signOut({ callbackUrl: `/${locale}/home` })}
+                    className="cursor-pointer text-red-500 focus:text-red-500"
+                  >
+                    <LogOut className="h-4 w-4 mr-2" />
+                    <span>Sign Out</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : status === "unauthenticated" ? (
+              <Button 
+                size="sm" 
+                asChild
+                className="h-8 text-sm font-medium"
+              >
+                <Link href={`/${locale}/signin`}>
+                  Sign In
+                </Link>
+              </Button>
+            ) : null}
 
             {/* Language Selector */}
             <DropdownMenu>
@@ -155,6 +237,40 @@ export function Navbar({ locale }: NavbarProps) {
                     <span className="font-bold text-lg">osu!mirror</span>
                   </div>
                 </SheetHeader>
+                
+                {/* User info in mobile menu */}
+                {isAuthenticated && session?.user && (
+                  <div className="border-b border-border pb-4 mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="relative h-10 w-10 rounded-sm overflow-hidden flex-shrink-0">
+                        <Image 
+                          src={session.user.image || "https://a.ppy.sh/0"} 
+                          alt={session.user.name || "User"} 
+                          fill
+                          className="object-cover"
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium">{session.user.name}</p>
+                        {session.user.country?.code && (
+                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                            {session.user.country.code && (
+                              <Image 
+                                src={getCountryFlagUrl(session.user.country.code)}
+                                alt={session.user.country.code}
+                                width={16}
+                                height={12}
+                                className="rounded-[1px]"
+                              />
+                            )}
+                            <span>{session.user.country?.name}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
                 <div className="flex flex-col py-2 gap-1">
                   {navLinks.map((link) => {
                     const isActive = pathname === link.href;
@@ -188,6 +304,46 @@ export function Navbar({ locale }: NavbarProps) {
                       Search
                     </Link>
                   </SheetClose>
+                  
+                  {/* Profile link in mobile menu or sign in button */}
+                  {isAuthenticated ? (
+                    <>
+                      <SheetClose asChild>
+                        <Link
+                          href={`/${locale}/profile`}
+                          className={cn(
+                            "flex items-center gap-3 px-4 py-2.5 rounded-md transition-colors",
+                            pathname === `/${locale}/profile`
+                              ? "bg-pink-600/5 text-pink-600 font-medium" 
+                              : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
+                          )}
+                        >
+                          <User className="h-4 w-4" />
+                          Profile
+                        </Link>
+                      </SheetClose>
+                      
+                      <SheetClose asChild>
+                        <button
+                          onClick={() => signOut({ callbackUrl: `/${locale}/home` })}
+                          className="flex items-center gap-3 px-4 py-2.5 rounded-md text-red-500 hover:text-red-600 hover:bg-red-500/5 transition-colors text-left w-full"
+                        >
+                          <LogOut className="h-4 w-4" />
+                          Sign Out
+                        </button>
+                      </SheetClose>
+                    </>
+                  ) : status === "unauthenticated" && (
+                    <SheetClose asChild>
+                      <Link
+                        href={`/${locale}/signin`}
+                        className="flex items-center gap-3 px-4 py-2.5 rounded-md bg-pink-600 text-white hover:bg-pink-700 transition-colors mt-2"
+                      >
+                        <User className="h-4 w-4" />
+                        Sign In
+                      </Link>
+                    </SheetClose>
+                  )}
                   
                   <div className="px-4 py-2.5">
                     <DropdownMenu>

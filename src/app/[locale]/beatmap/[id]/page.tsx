@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { formatTime, formatNumber, formatDate } from '@/lib/utils';
 import CoverArtPreview from '@/components/CoverArtPreview';
+import UserScores from '@/components/UserScores';
 import { 
   Star, 
   Clock, 
@@ -477,6 +478,14 @@ export default async function BeatmapPage(props: BeatmapPageProps) {
           </CardContent>
         </Card>
       </div>
+      
+      {/* User Scores section */}
+      {beatmapset.beatmaps && beatmapset.beatmaps.length > 0 && (
+        <UserScores 
+          beatmapId={beatmapset.beatmaps[0].id.toString()} 
+          beatmapset={beatmapset}
+        />
+      )}
       
       {/* Additional section: Similar Beatmaps */}
       <Card className="bg-card/50 backdrop-blur-sm border-pink-600/10 shadow-md overflow-hidden">
